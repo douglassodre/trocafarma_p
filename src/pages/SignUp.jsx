@@ -11,6 +11,7 @@ const SignUp = () => {
         password: '',
         cpf: '',
         cnpj: '',
+        whatsapp: '',
     })
     const [institutionName, setInstitutionName] = useState('')
     const [loading, setLoading] = useState(false)
@@ -20,6 +21,21 @@ const SignUp = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
+    }
+
+    const handlePhoneChange = (e) => {
+        let value = e.target.value.replace(/\D/g, '')
+        if (value.length > 11) value = value.slice(0, 11)
+
+        // Mask: (XX) XXXXX-XXXX
+        if (value.length > 2) {
+            value = `(${value.slice(0, 2)}) ${value.slice(2)}`
+        }
+        if (value.length > 9) {
+            value = `${value.slice(0, 9)}-${value.slice(9)}`
+        }
+
+        setFormData({ ...formData, whatsapp: value })
     }
 
     const handleBlurCpf = async () => {
@@ -132,8 +148,9 @@ const SignUp = () => {
                     email: formData.email,
                     instituicao_id: institutionId,
                     role: role,
-                    cpf: formData.cpf, // Ensure column exists or ignore if not in schema yet (user warned)
-                    is_active: role === 'UNIDADE_ADM' // Admins are active by default, Operators need approval
+                    cpf: formData.cpf,
+                    whatsapp: formData.whatsapp, // Insert WhatsApp
+                    is_active: role === 'UNIDADE_ADM'
                 }])
 
             if (profileError) {
@@ -188,6 +205,19 @@ const SignUp = () => {
                                 className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                 value={formData.name}
                                 onChange={handleChange}
+                            />
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
+                            <input
+                                name="whatsapp"
+                                type="text"
+                                required
+                                placeholder="(00) 00000-0000"
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                value={formData.whatsapp}
+                                onChange={handlePhoneChange}
                             />
                         </div>
 

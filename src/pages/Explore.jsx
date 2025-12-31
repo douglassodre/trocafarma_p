@@ -69,7 +69,7 @@ const Explore = () => {
             // Removed 'cidade, estado' from instituicoes join as they don't exist there.
             const { data, error } = await supabase
                 .from('anuncios')
-                .select('*, instituicoes (nome_fantasia)')
+                .select('*, instituicoes (nome_fantasia), perfis_usuarios (whatsapp)')
                 .eq('status', 'ATIVO')
                 .neq('usuario_id', user.id) // Restore: Don't show my own ads
                 .order('created_at', { ascending: false })
@@ -429,7 +429,18 @@ const Explore = () => {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-slate-900">WhatsApp Oficial</p>
-                                                    <a href="#" className="text-green-600 text-sm hover:underline">Iniciar conversa com {selectedAd.instituicoes?.nome_fantasia}</a>
+                                                    {selectedAd.perfis_usuarios?.whatsapp ? (
+                                                        <a
+                                                            href={`https://wa.me/55${selectedAd.perfis_usuarios.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, vi seu anúncio do item ${selectedAd.descricao_customizada} no Trocafarma e tenho interesse.`)}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-green-600 text-sm hover:underline"
+                                                        >
+                                                            Iniciar conversa com {selectedAd.instituicoes?.nome_fantasia}
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">Número não disponível</span>
+                                                    )}
                                                 </div>
                                             </li>
                                             <li className="flex items-start gap-3">

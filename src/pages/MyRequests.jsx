@@ -31,6 +31,9 @@ const MyRequests = () => {
                         *,
                         instituicoes (
                             nome_fantasia
+                        ),
+                        perfis_usuarios (
+                            whatsapp
                         )
                     )
                 `)
@@ -82,6 +85,16 @@ const MyRequests = () => {
             console.error('Error confirming receipt:', error)
             alert('Erro ao confirmar recebimento.')
         }
+    }
+
+    const handleWhatsAppClick = (whatsapp, itemName) => {
+        if (!whatsapp) {
+            alert('Número de WhatsApp não disponível para este fornecedor.')
+            return
+        }
+        const message = encodeURIComponent(`Olá, estou entrando em contato sobre a solicitação do item: ${itemName}`)
+        const url = `https://wa.me/55${whatsapp.replace(/\D/g, '')}?text=${message}`
+        window.open(url, '_blank')
     }
 
     const getStatusBadge = (status) => {
@@ -182,7 +195,11 @@ const MyRequests = () => {
                                                 </Button>
                                             </Link>
                                         )}
-                                        <Button variant="outline" className="gap-2 text-green-700 border-green-200 hover:bg-green-50">
+                                        <Button
+                                            variant="outline"
+                                            className="gap-2 text-green-700 border-green-200 hover:bg-green-50"
+                                            onClick={() => handleWhatsAppClick(req.anuncios?.perfis_usuarios?.whatsapp, req.anuncios?.descricao_customizada)}
+                                        >
                                             <MessageCircle className="h-4 w-4" />
                                             WhatsApp Fornecedor
                                         </Button>
@@ -292,7 +309,11 @@ const MyRequests = () => {
                                     <Download className="h-4 w-4" />
                                     Baixar Comprovante
                                 </Button>
-                                <Button variant="outline" className="flex-1 gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 gap-2"
+                                    onClick={() => handleWhatsAppClick(selectedRequest.anuncios?.perfis_usuarios?.whatsapp, selectedRequest.anuncios?.descricao_customizada)}
+                                >
                                     <MessageCircle className="h-4 w-4" />
                                     Contatar Fornecedor
                                 </Button>
