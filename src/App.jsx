@@ -1,0 +1,80 @@
+
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import SignUp from './pages/SignUp'
+import SignIn from './pages/SignIn'
+import Home from './pages/Home'
+import PendingApproval from './pages/PendingApproval'
+import NewAd from './pages/NewAd'
+import MyAds from './pages/MyAds'
+import MyRequests from './pages/MyRequests' // Imported
+import ManageUsers from './pages/ManageUsers'
+import { AuthProvider } from './contexts/AuthContext'
+
+import DashboardLayout from './layouts/DashboardLayout'
+import Explore from './pages/Explore'
+import ReturnProcess from './pages/ReturnProcess' // Imported
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/signin" element={<SignIn />} />
+
+          <Route path="/pending-approval" element={
+            <DashboardLayout>
+              <PendingApproval />
+            </DashboardLayout>
+          } />
+
+          <Route path="/novo-anuncio" element={
+            <DashboardLayout>
+              <NewAd />
+            </DashboardLayout>
+          } />
+
+          <Route path="/meus-anuncios" element={
+            <DashboardLayout>
+              <MyAds />
+            </DashboardLayout>
+          } />
+
+          <Route path="/minhas-solicitacoes" element={
+            <DashboardLayout>
+              <MyRequests />
+            </DashboardLayout>
+          } />
+
+          <Route path="/devolver/:id" element={
+            <DashboardLayout>
+              <ReturnProcess />
+            </DashboardLayout>
+          } />
+
+          <Route path="/equipe" element={
+            <DashboardLayout>
+              <ManageUsers />
+            </DashboardLayout>
+          } />
+
+          <Route path="/" element={
+            <DashboardLayout>
+              <Home />
+            </DashboardLayout>
+          } />
+
+          <Route path="/explorar" element={
+            <DashboardLayout>
+              <Explore />
+            </DashboardLayout>
+          } />
+
+          <Route path="*" element={<Navigate to="/signin" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  )
+}
+
+export default App
