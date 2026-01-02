@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
     Search, Filter, MapPin, Calendar,
-    Package, ArrowRight, X, MessageCircle, RefreshCw, Truck
+    Package, ArrowRight, X, MessageCircle, RefreshCw, Truck, Share2
 } from 'lucide-react'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
@@ -306,9 +306,27 @@ const Explore = () => {
                                                 <span className="text-sm text-slate-500">Cód: {selectedAd.item_codigo}</span>
                                             </div>
                                         </div>
-                                        <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-full transition">
-                                            <X className="h-6 w-6 text-slate-500" />
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const text = `💊 TrocaFarma - Novo Item Disponível!
+Item: ${selectedAd.descricao_customizada}
+Validade: ${new Date(selectedAd.data_vencimento).toLocaleDateString()}
+Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituição'}
+
+🔗 Confira os detalhes e solicite a troca aqui: ${window.location.origin}/anuncio/${selectedAd.id}`
+
+                                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+                                                }}
+                                                className="p-2 hover:bg-green-50 text-green-600 rounded-full transition"
+                                                title="Compartilhar no WhatsApp"
+                                            >
+                                                <Share2 className="h-6 w-6" />
+                                            </button>
+                                            <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-full transition">
+                                                <X className="h-6 w-6 text-slate-500" />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">

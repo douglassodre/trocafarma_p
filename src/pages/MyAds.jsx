@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import {
     ArrowLeft, Plus, Calendar, AlertTriangle,
     CheckCircle, XCircle, Package, Edit2,
-    Trash2, Clock, EyeOff, Users, X
+    Trash2, Clock, EyeOff, Users, X, Share2
 } from 'lucide-react'
 
 const MyAds = () => {
@@ -51,6 +51,9 @@ const MyAds = () => {
                 .from('anuncios')
                 .select(`
                     *,
+                    instituicoes (
+                        nome_fantasia
+                    ),
                     transacoes (
                         id,
                         status,
@@ -83,6 +86,19 @@ const MyAds = () => {
             fetchAds()
         }
     }, [user])
+
+    const handleWhatsAppShare = (ad, e) => {
+        e.stopPropagation()
+        const text = `💊 TrocaFarma - Novo Item Disponível!
+Item: ${ad.descricao_customizada}
+Validade: ${new Date(ad.data_vencimento).toLocaleDateString()}
+Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
+
+🔗 Confira os detalhes e solicite a troca aqui: ${window.location.origin}/anuncio/${ad.id}`
+
+        const url = `https://wa.me/?text=${encodeURIComponent(text)}`
+        window.open(url, '_blank')
+    }
 
     const handleInactivate = async (id) => {
         if (!confirm('Tem certeza que deseja finalizar este anúncio? Ele não aparecerá mais nas buscas.')) return
@@ -374,6 +390,14 @@ const MyAds = () => {
                                     >
                                         <Edit2 className="h-4 w-4" />
                                         <span>Editar</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleWhatsAppShare(ad, e)}
+                                        disabled={ad.status !== 'ATIVO'}
+                                        title="Compartilhar"
+                                        className="flex items-center justify-center p-2 rounded-lg text-green-600 hover:bg-green-50 border border-transparent hover:border-green-100 transition disabled:opacity-50 disabled:hover:bg-transparent"
+                                    >
+                                        <Share2 className="h-4 w-4" />
                                     </button>
                                     <button
                                         onClick={(e) => {

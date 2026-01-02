@@ -15,69 +15,79 @@ import Explore from './pages/Explore'
 import ReturnProcess from './pages/ReturnProcess'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
+import AdDetails from './pages/AdDetails'
+import { HelmetProvider } from 'react-helmet-async'
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
+    <HelmetProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
 
-          <Route path="/pending-approval" element={
-            <DashboardLayout>
-              <PendingApproval />
-            </DashboardLayout>
-          } />
+            <Route path="/anuncio/:id" element={
+              <DashboardLayout>
+                <AdDetails />
+              </DashboardLayout>
+            } />
 
-          <Route path="/novo-anuncio" element={
-            <DashboardLayout>
-              <NewAd />
-            </DashboardLayout>
-          } />
+            <Route path="/pending-approval" element={
+              <DashboardLayout>
+                <PendingApproval />
+              </DashboardLayout>
+            } />
 
-          <Route path="/meus-anuncios" element={
-            <DashboardLayout>
-              <MyAds />
-            </DashboardLayout>
-          } />
+            <Route path="/novo-anuncio" element={
+              <DashboardLayout>
+                <NewAd />
+              </DashboardLayout>
+            } />
 
-          <Route path="/minhas-solicitacoes" element={
-            <DashboardLayout>
-              <MyRequests />
-            </DashboardLayout>
-          } />
+            <Route path="/meus-anuncios" element={
+              <DashboardLayout>
+                <MyAds />
+              </DashboardLayout>
+            } />
 
-          <Route path="/devolver/:id" element={
-            <DashboardLayout>
-              <ReturnProcess />
-            </DashboardLayout>
-          } />
+            <Route path="/minhas-solicitacoes" element={
+              <DashboardLayout>
+                <MyRequests />
+              </DashboardLayout>
+            } />
 
-          <Route path="/equipe" element={
-            <DashboardLayout>
-              <ManageUsers />
-            </DashboardLayout>
-          } />
+            <Route path="/devolver/:id" element={
+              <DashboardLayout>
+                <ReturnProcess />
+              </DashboardLayout>
+            } />
 
-          <Route path="/" element={
-            <DashboardLayout>
-              <Home />
-            </DashboardLayout>
-          } />
+            <Route path="/equipe" element={
+              <DashboardLayout>
+                <ManageUsers />
+              </DashboardLayout>
+            } />
 
-          <Route path="/explorar" element={
-            <DashboardLayout>
-              <Explore />
-            </DashboardLayout>
-          } />
+            <Route path="/" element={
+              <DashboardLayout>
+                <Home />
+              </DashboardLayout>
+            } />
 
-          <Route path="*" element={<Navigate to="/signin" />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+            <Route path="/explorar" element={
+              <DashboardLayout>
+                <Explore />
+              </DashboardLayout>
+            } />
+
+            <Route path="*" element={<Navigate to="/signin" />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </HelmetProvider>
   )
 }
 
