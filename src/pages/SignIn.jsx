@@ -86,6 +86,11 @@ const SignIn = () => {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+                        <div className="text-right">
+                            <Link to="/forgot-password" className="font-medium text-sm text-indigo-600 hover:text-indigo-500">
+                                Esqueceu sua senha?
+                            </Link>
+                        </div>
                     </div>
 
                     <div>

@@ -12,7 +12,9 @@ import { AuthProvider } from './contexts/AuthContext'
 
 import DashboardLayout from './layouts/DashboardLayout'
 import Explore from './pages/Explore'
-import ReturnProcess from './pages/ReturnProcess' // Imported
+import ReturnProcess from './pages/ReturnProcess'
+import ForgotPassword from './pages/ForgotPassword'
+import UpdatePassword from './pages/UpdatePassword'
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Routes>
           <Route path="/signup" element={<SignUp />} />
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
 
           <Route path="/pending-approval" element={
             <DashboardLayout>
