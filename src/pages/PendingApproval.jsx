@@ -1,15 +1,15 @@
 import { useAuth } from '../contexts/AuthContext'
 
+import logo from '../assets/logo.png'
+
 const PendingApproval = () => {
     const { signOut } = useAuth()
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full text-center p-8 bg-white shadow rounded-xl space-y-6">
-                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100">
-                    <svg className="h-10 w-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-blue-50">
+                    <img src={logo} alt="Trocafarma" className="h-12 w-12 object-contain" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">Aguardando Aprovação</h2>
                 <p className="text-gray-500">

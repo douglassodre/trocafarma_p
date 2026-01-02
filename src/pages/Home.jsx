@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
+import logo from '../assets/logo.png'
+
 const Home = () => {
     const { user, userProfile, signOut } = useAuth()
     const navigate = useNavigate()
@@ -56,9 +58,7 @@ const Home = () => {
             <header className="bg-white shadow-sm border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
-                        <div className="bg-indigo-600 p-2 rounded-lg">
-                            <Building2 className="h-6 w-6 text-white" />
-                        </div>
+                        <img src={logo} alt="Trocafarma" className="h-10 w-10 object-contain" />
                         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Trocafarma</h1>
                     </div>
                     <div className="flex items-center space-x-6">

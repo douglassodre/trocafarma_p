@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
 
+import logo from '../assets/logo.png'
+
 const SignUp = () => {
     const navigate = useNavigate()
     const [formData, setFormData] = useState({
@@ -173,6 +175,9 @@ const SignUp = () => {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl">
+                <div className="flex justify-center mb-4">
+                    <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
+                </div>
                 <h2 className="text-3xl font-bold text-center text-gray-900">Cadastro Trocafarma</h2>
 
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded">{error}</div>}
