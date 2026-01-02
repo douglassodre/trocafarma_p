@@ -52,6 +52,11 @@ const NewAd = () => {
     const [isEditMode, setIsEditMode] = useState(false)
     const [editingId, setEditingId] = useState(null)
 
+    // Image Upload State
+    const [selectedImage, setSelectedImage] = useState(null)
+    const [previewUrl, setPreviewUrl] = useState(null)
+    const [uploadingImage, setUploadingImage] = useState(false)
+
     // 1. Verificação de Bloqueio & Auth & Geolocation & Edit Mode
     useEffect(() => {
         if (!user) {
@@ -74,10 +79,13 @@ const NewAd = () => {
                 logistics: ad.logistica || 'RETIRADA',
                 returnDate: ad.prazo_devolucao || '',
                 exchangeItems: ad.itens_desejados_troca || '',
-                photos: '', // Assuming photos not fully implemented in read yet or strict url
+                photos: '', // We don't populate the file input, but we could show the existing URL
                 cidade: ad.cidade || '',
                 estado: ad.estado || ''
             })
+            if (ad.foto_url) {
+                setPreviewUrl(ad.foto_url)
+            }
             setIsEditMode(true)
             setEditingId(ad.id)
 
@@ -159,6 +167,66 @@ const NewAd = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
     }
 
+    const handleImageChange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+            setSelectedImage(file)
+            const objectUrl = URL.createObjectURL(file)
+            setPreviewUrl(objectUrl)
+        }
+    }
+
+    const processImageWithWatermark = async (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = (event) => {
+                const img = new Image()
+                img.src = event.target.result
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    const ctx = canvas.getContext('2d')
+
+                    // Set canvas dimensions to match image
+                    canvas.width = img.width
+                    canvas.height = img.height
+
+                    // Draw original image
+                    ctx.drawImage(img, 0, 0)
+
+                    // Add Watermark
+                    const text = "Gerado via TrocaFarma"
+                    const fontSize = Math.max(20, img.width * 0.04) // Responsive font size
+                    ctx.font = `bold ${fontSize}px sans-serif`
+                    ctx.fillStyle = "white"
+                    ctx.textAlign = "right"
+                    ctx.textBaseline = "bottom"
+
+                    // Add shadow for better visibility
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.7)"
+                    ctx.shadowBlur = 4
+                    ctx.shadowOffsetX = 2
+                    ctx.shadowOffsetY = 2
+
+                    // Position text at bottom right with padding
+                    const padding = Math.max(10, img.width * 0.02)
+                    ctx.fillText(text, canvas.width - padding, canvas.height - padding)
+
+                    // Convert to Blob
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob)
+                        } else {
+                            reject(new Error("Falha ao processar imagem no canvas"))
+                        }
+                    }, 'image/jpeg', 0.85) // Quality 0.85
+                }
+                img.onerror = (err) => reject(err)
+            }
+            reader.onerror = (err) => reject(err)
+        })
+    }
+
     // Wrapper for Autocomplete
     const handleSearch = async (query) => {
         try {
@@ -201,6 +269,13 @@ const NewAd = () => {
         setLoading(true)
         setFeedback('')
 
+        // Ensure description is filled (validation usually done by HTML 'required' or disabled button, but double check)
+        if (!formData.description) {
+            setFeedback('Por favor, selecione um medicamento da lista.')
+            setLoading(false)
+            return
+        }
+
         // Validations
         const today = new Date().toISOString().split('T')[0]
         if (formData.expirationDate < today) {
@@ -240,6 +315,44 @@ const NewAd = () => {
             // Note: We are now SELECTING from catalogo_itens, so no need to save back to it unless we allow new entries.
             // Current requirement is STRICT catalog. So skip insert.
 
+            let finalPhotoUrl = null
+
+            // Upload Image if selected
+            if (selectedImage) {
+                setUploadingImage(true)
+                try {
+                    const processedBlob = await processImageWithWatermark(selectedImage)
+                    const fileExt = 'jpg' // We converted to jpeg
+                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
+                    const filePath = `${user.id}/${fileName}`
+
+                    const { error: uploadError } = await supabase.storage
+                        .from('anuncios-fotos')
+                        .upload(filePath, processedBlob, {
+                            contentType: 'image/jpeg',
+                            upsert: false
+                        })
+
+                    if (uploadError) throw uploadError
+
+                    const { data: publicUrlData } = supabase.storage
+                        .from('anuncios-fotos')
+                        .getPublicUrl(filePath)
+
+                    finalPhotoUrl = publicUrlData.publicUrl
+                } catch (uploadErr) {
+                    console.error("Erro no upload:", uploadErr)
+                    setFeedback("Erro ao enviar imagem. Tente novamente.")
+                    setLoading(false)
+                    setUploadingImage(false)
+                    return
+                }
+                setUploadingImage(false)
+            } else if (isEditMode && previewUrl && previewUrl.startsWith('http')) {
+                // Keep existing URL if edit mode and no new file selected
+                finalPhotoUrl = previewUrl
+            }
+
 
             // Calculate Ad Expiration
             const isPremium = userProfile?.is_premium || false
@@ -262,7 +375,8 @@ const NewAd = () => {
                 data_expiracao: expirationDateObj.toISOString(),
                 status: 'ATIVO',
                 cidade: formData.cidade,
-                estado: formData.estado
+                estado: formData.estado,
+                foto_url: finalPhotoUrl
             }
 
             let error = null
@@ -557,20 +671,48 @@ const NewAd = () => {
                         </div>
 
                         <div>
-                            <Label className="mb-2 block">Fotos (URL temporário)</Label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Camera className="h-5 w-5 text-gray-400" />
+                            <Label className="mb-2 block">Foto do Item</Label>
+                            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                <div className="flex flex-col items-center">
+                                    {/* Preview Area */}
+                                    <div className="w-full max-w-sm h-64 bg-slate-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden border-2 border-dashed border-slate-300 relative">
+                                        {previewUrl ? (
+                                            <img
+                                                src={previewUrl}
+                                                alt="Prévia"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="text-center text-slate-400">
+                                                <Camera className="h-12 w-12 mx-auto mb-2" />
+                                                <span className="text-sm">Nenhuma foto selecionada</span>
+                                            </div>
+                                        )}
+                                        {uploadingImage && (
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold">
+                                                Enviando...
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* File Input */}
+                                    <div className="relative w-full max-w-sm">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            className="hidden"
+                                            id="file-upload"
+                                        />
+                                        <label
+                                            htmlFor="file-upload"
+                                            className="w-full flex items-center justify-center space-x-2 bg-white border border-slate-300 text-slate-700 py-2 px-4 rounded-lg cursor-pointer hover:bg-slate-50 transition shadow-sm"
+                                        >
+                                            <Camera className="h-4 w-4" />
+                                            <span>{previewUrl ? 'Trocar Foto' : 'Adicionar Foto'}</span>
+                                        </label>
+                                    </div>
                                 </div>
-                                <Input
-                                    type="text"
-                                    name="photos"
-                                    value={formData.photos}
-                                    onChange={handleChange}
-                                    required
-                                    placeholder="http://..."
-                                    className="pl-10"
-                                />
                             </div>
                         </div>
 
@@ -588,7 +730,7 @@ const NewAd = () => {
                             disabled={loading || !formData.description}
                         >
                             {loading ? <span className="animate-spin mr-2">⏳</span> : <Save className="h-4 w-4 mr-2" />}
-                            {loading ? 'Salvando...' : (isEditMode ? 'Atualizar Anúncio' : 'Criar Anúncio')}
+                            {loading ? (uploadingImage ? 'Enviando Imagem...' : 'Salvando...') : (isEditMode ? 'Atualizar Anúncio' : 'Criar Anúncio')}
                         </Button>
                     </CardFooter>
                 </form>
