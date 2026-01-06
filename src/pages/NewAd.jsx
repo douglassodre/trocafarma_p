@@ -35,6 +35,7 @@ const NewAd = () => {
         description: '',
         category: '', // New field
         quantity: '', // New quantity field
+        unitPrice: '', // New unit price field
         batch: '',
         expirationDate: '',
         type: 'DOACAO', // DOACAO, EMPRESTIMO, PERMUTA
@@ -73,6 +74,7 @@ const NewAd = () => {
                 description: ad.descricao_customizada || '',
                 category: ad.categoria || 'MEDICAMENTO', // Default if missing
                 quantity: ad.quantidade || '',
+                unitPrice: ad.preco_unitario || '',
                 batch: ad.lote || '',
                 expirationDate: ad.data_vencimento || '',
                 type: ad.tipo || 'DOACAO',
@@ -366,6 +368,8 @@ const NewAd = () => {
                 item_codigo: formData.itemCode,
                 descricao_customizada: formData.description,
                 quantidade: formData.quantity, // Added quantity
+                preco_unitario: formData.unitPrice || 0,
+                valor_total_estoque: (formData.unitPrice || 0) * (formData.quantity || 0),
                 lote: formData.batch,
                 data_vencimento: formData.expirationDate,
                 tipo: formData.type,
@@ -569,6 +573,7 @@ const NewAd = () => {
                                     />
                                 </div>
                             </div>
+
                             <div>
                                 <Label className="mb-2 block">Lote</Label>
                                 <div className="relative">
@@ -600,6 +605,43 @@ const NewAd = () => {
                                         min={new Date().toISOString().split('T')[0]}
                                         className="pl-10"
                                     />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Financials - Dedicated Section */}
+                        <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100">
+                            <h3 className="text-sm font-semibold text-emerald-800 mb-4 flex items-center">
+                                <Tag className="h-4 w-4 mr-2" />
+                                Valor e Impacto
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <Label className="mb-2 block text-emerald-900">Preço Unitário (R$)</Label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span className="text-emerald-600 font-bold">R$</span>
+                                        </div>
+                                        <Input
+                                            type="number"
+                                            name="unitPrice"
+                                            value={formData.unitPrice}
+                                            onChange={handleChange}
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0,00"
+                                            className="pl-10 border-emerald-200 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-emerald-700 mt-1">Defina o valor de mercado para calcular a economia gerada.</p>
+                                </div>
+                                <div className="bg-white p-4 rounded-lg border border-emerald-100 flex flex-col justify-center">
+                                    <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Valor Total do Estoque</span>
+                                    <span className="text-2xl font-bold text-emerald-900">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                            (parseFloat(formData.unitPrice) || 0) * (parseFloat(formData.quantity) || 0)
+                                        )}
+                                    </span>
                                 </div>
                             </div>
                         </div>

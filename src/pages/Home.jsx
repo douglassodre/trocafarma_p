@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight } from 'lucide-react'
+import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 import logo from '../assets/logo.png'
@@ -18,6 +18,13 @@ const Home = () => {
     const [inTransitItems, setInTransitItems] = useState([])
     const inTransitCount = inTransitItems.length
 
+    // KPI State
+    const [kpis, setKpis] = useState({
+        savings: 0,
+        itemsMoved: 0,
+        lossAvoided: 0
+    })
+
     // Basic protection (can be moved to a wrapper later)
     useEffect(() => {
         if (!user) navigate('/signin')
@@ -25,6 +32,7 @@ const Home = () => {
 
         if (user) {
             fetchInTransitItems()
+            fetchKPIs()
         }
     }, [user, userProfile, navigate])
 
@@ -48,6 +56,55 @@ const Home = () => {
             setInTransitItems(data || [])
         } catch (err) {
             console.error('Error fetching in-transit items:', err)
+        }
+    }
+
+    const fetchKPIs = async () => {
+        try {
+            // 1. Total Savings (Economia Total): Value of items RECEIVED by this user/institution
+            const { data: inboundData, error: inboundError } = await supabase
+                .from('transacoes')
+                .select('valor_economizado, quantidade')
+                .eq('solicitante_id', user.id)
+                .eq('status', 'CONCLUIDO')
+
+            if (inboundError) throw inboundError
+
+            const totalSavings = inboundData?.reduce((acc, curr) => acc + (curr.valor_economizado || 0), 0) || 0
+
+            // 2. Avoided Loss (Perda Evitada): Value of items DONATED by this user that were close to expiry (e.g. < 90 days)
+            // We need to join with anuncios to check data_vencimento vs created_at
+            // For simplicity in this step, let's value ALL donations as "Potential Loss Avoided" or check a flag.
+            // Better approximation: Value of all OUTBOUND transactions (since they were likely surplus).
+            // Let's settle on: Value of OUTBOUND transactions = Loss Avoided for the donor. 
+            // Or strictly "Perda Evitada" = Donated items.
+
+            const { data: outboundData, error: outboundError } = await supabase
+                .from('transacoes')
+                .select(`
+                    valor_economizado,
+                    quantidade, 
+                    anuncios!inner(usuario_id)
+                `)
+                .eq('anuncios.usuario_id', user.id) // I am the owner
+                .eq('status', 'CONCLUIDO')
+
+            if (outboundError) throw outboundError
+
+            const totalLossAvoided = outboundData?.reduce((acc, curr) => acc + (curr.valor_economizado || 0), 0) || 0
+
+            // 3. Items Moved: Sum of quantities (Inbound + Outbound)
+            const inboundQty = inboundData?.reduce((acc, curr) => acc + (curr.quantidade || 0), 0) || 0
+            const outboundQty = outboundData?.reduce((acc, curr) => acc + (curr.quantidade || 0), 0) || 0
+
+            setKpis({
+                savings: totalSavings,
+                lossAvoided: totalLossAvoided,
+                itemsMoved: inboundQty + outboundQty
+            })
+
+        } catch (err) {
+            console.error('Error fetching KPIs:', err)
         }
     }
 
@@ -133,6 +190,43 @@ const Home = () => {
                     {/* Decorative Circles */}
                     <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
                     <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-indigo-900 opacity-20 rounded-full blur-3xl"></div>
+                </div>
+
+                {/* --- KPI Section --- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100 flex items-center space-x-4">
+                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+                            <TrendingUp className="h-8 w-8" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-emerald-600 mb-1">Economia Total</p>
+                            <h3 className="text-2xl font-bold text-gray-900">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpis.savings)}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex items-center space-x-4">
+                        <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                            <Activity className="h-8 w-8" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-blue-600 mb-1">Itens Movimentados</p>
+                            <h3 className="text-2xl font-bold text-gray-900">{kpis.itemsMoved}</h3>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center space-x-4">
+                        <div className="p-3 bg-orange-50 rounded-xl text-orange-600">
+                            <ShieldCheck className="h-8 w-8" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-orange-600 mb-1">Perda Evitada</p>
+                            <h3 className="text-2xl font-bold text-gray-900">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpis.lossAvoided)}
+                            </h3>
+                        </div>
+                    </div>
                 </div>
 
                 {/* --- New Section: Requests In Transit --- */}

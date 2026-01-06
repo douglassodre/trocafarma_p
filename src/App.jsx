@@ -7,6 +7,7 @@ import PendingApproval from './pages/PendingApproval'
 import NewAd from './pages/NewAd'
 import MyAds from './pages/MyAds'
 import MyRequests from './pages/MyRequests' // Imported
+import Relatorio from './pages/Relatorio' // Imported
 import ManageUsers from './pages/ManageUsers'
 import { AuthProvider } from './contexts/AuthContext'
 
@@ -56,6 +57,12 @@ function App() {
             <Route path="/minhas-solicitacoes" element={
               <DashboardLayout>
                 <MyRequests />
+              </DashboardLayout>
+            } />
+
+            <Route path="/relatorio" element={
+              <DashboardLayout>
+                <Relatorio />
               </DashboardLayout>
             } />
 

@@ -54,10 +54,18 @@ const MyRequests = () => {
         if (!confirm('Confirmar o recebimento deste item?')) return
 
         try {
-            // Update transaction status
+            // Calculate Savings
+            const unitPrice = transaction.anuncios?.preco_unitario || 0
+            const quantity = transaction.quantidade || 0
+            const savings = unitPrice * quantity
+
+            // Update transaction status AND savings
             const { error: txError } = await supabase
                 .from('transacoes')
-                .update({ status: 'CONCLUIDO' })
+                .update({
+                    status: 'CONCLUIDO',
+                    valor_economizado: savings
+                })
                 .eq('id', transaction.id)
 
             if (txError) throw txError
@@ -73,11 +81,16 @@ const MyRequests = () => {
             }
 
             // Report usage to Stripe
-            // We use the transaction quantity as the metered value
-            if (transaction.quantidade) {
+            // We use the SAVINGS (monetary value) as the metered value
+            if (savings > 0) {
                 import('../services/stripe').then(({ reportTradeUsage }) => {
-                    reportTradeUsage(transaction.quantidade);
+                    reportTradeUsage(savings);
                 }).catch(console.error);
+            } else if (quantity > 0) {
+                // Fallback: report quantity if price is 0 (optional, depends on business logic, but plan said send economy)
+                // If savings is 0, we might strictly want to report 0 or nothing?
+                // Let's stick to savings > 0 check to avoid spamming 0 usage.
+                console.log("Servico gratuito, sem valor monetario gerado para reportar ao Stripe.")
             }
 
             // Remove snooze if exists (cleanup)
