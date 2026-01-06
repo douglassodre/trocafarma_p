@@ -14,12 +14,18 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_t
  */
 export const activatePremium = async (userId) => {
     try {
-        // Get current user email for pre-filling
+        // Get current user email for pre-filling and ensure we have an ID
         const { data: { user } } = await supabase.auth.getUser();
+
+        const finalUserId = userId || user?.id;
+
+        if (!finalUserId) {
+            throw new Error("User ID not found. Please log in again.");
+        }
 
         const { data, error } = await supabase.functions.invoke('stripe-checkout', {
             body: {
-                userId: userId, // explicitly passed as requested
+                userId: finalUserId,
                 email: user?.email,
                 successUrl: window.location.origin,
                 cancelUrl: window.location.origin
@@ -27,14 +33,10 @@ export const activatePremium = async (userId) => {
         });
 
         if (error) throw error;
-        if (!data?.sessionId) throw new Error('No session ID returned');
+        if (!data?.url) throw new Error('No checkout URL returned');
 
-        const stripe = await stripePromise;
-        const { error: stripeError } = await stripe.redirectToCheckout({
-            sessionId: data.sessionId,
-        });
-
-        if (stripeError) throw stripeError;
+        // Manual redirect as requested
+        window.location.href = data.url;
 
     } catch (error) {
         console.error('Error activating premium:', error);
