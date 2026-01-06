@@ -43,26 +43,43 @@ Deno.serve(async (req) => {
 
         console.log("User authenticated:", user.id);
 
-        const { priceId, successUrl, cancelUrl } = await req.json();
+        // Initialize Stripe client here, after env var check
+        const stripe = new Stripe(stripeKey, {
+            apiVersion: '2023-10-16',
+            typescript: true,
+        });
 
-        let finalPriceId = priceId;
+        const rawBody = await req.text();
+        console.log('Dados recebidos do frontend (raw):', rawBody);
+
+        let body;
+        try {
+            body = JSON.parse(rawBody);
+        } catch (e) {
+            throw new Error("Invalid JSON body");
+        }
+
+        const { successUrl, cancelUrl } = body; // userId and email are now from authenticated user
+        console.log('Parsed successUrl:', successUrl);
+        console.log('Parsed cancelUrl:', cancelUrl);
+
+        const PROD_ID = 'prod_TjhsXi642vGdiH';
+        let finalPriceId = null;
+
+        console.log('Tentando chamar API do Stripe com o Produto:', PROD_ID);
+
+        // Fetch Price ID using the Stripe client
+        const prices = await stripe.prices.list({ product: PROD_ID, active: true, limit: 1 });
+        console.log('Resposta do Stripe (Prices):', JSON.stringify(prices));
+
+        if (prices.data && prices.data.length > 0) {
+            finalPriceId = prices.data[0].id;
+        }
+
+        console.log('Price ID encontrado:', finalPriceId);
 
         if (!finalPriceId) {
-            console.log("No priceId provided, looking up default product...");
-            const prodId = 'prod_TjhsXi642vGdiH';
-
-            // List prices without active:true first to see if it finds anything at all
-            const prices = await stripe.prices.list({ product: prodId, limit: 1 });
-            console.log("Prices found for product:", prices.data.length);
-
-            if (prices.data.length > 0) {
-                finalPriceId = prices.data[0].id;
-                console.log("Using Price ID:", finalPriceId);
-            } else {
-                // If debugging locally, maybe the product doesn't exist?
-                console.error(`Product ${prodId} has no prices.`);
-                throw new Error(`No price found for product ${prodId}. Please ensure the Product ID is correct and has a Price.`);
-            }
+            throw new Error(`Price not found for product ${PROD_ID}. Please ensure the Product ID is correct and has an active Price.`);
         }
 
         console.log("Creating Checkout Session...");
