@@ -55,16 +55,36 @@ const MyRequests = () => {
 
         try {
             // Calculate Savings
-            const unitPrice = transaction.anuncios?.preco_unitario || 0
-            const quantity = transaction.quantidade || 0
+            // 1. Fetch latest Ad data to ensure we have the correct Unit Price
+            const { data: adData } = await supabase
+                .from('anuncios')
+                .select('preco_unitario, quantidade')
+                .eq('id', transaction.anuncio_id)
+                .single()
+
+            // Use fresh price if available, otherwise fallback to transaction data
+            const fetchedPrice = adData?.preco_unitario
+            const fallbackPrice = transaction.anuncios?.preco_unitario
+            const unitPrice = Number(fetchedPrice) || Number(fallbackPrice) || 0
+            // FALLBACK FIX: If transaction quantity is 0, try to get from Ad, or default to 1
+            let quantity = Number(transaction.quantidade)
+            if (!quantity || quantity === 0) {
+                quantity = Number(adData?.quantidade) || 1
+            }
+
             const savings = unitPrice * quantity
+
+
+
+
 
             // Update transaction status AND savings
             const { error: txError } = await supabase
                 .from('transacoes')
                 .update({
                     status: 'CONCLUIDO',
-                    valor_economizado: savings
+                    valor_economizado: savings,
+                    quantidade: quantity // Backfill
                 })
                 .eq('id', transaction.id)
 

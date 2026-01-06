@@ -403,6 +403,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                             fornecedor_id: selectedAd.usuario_id,
                                                             status: 'SOLICITADO',
                                                             tipo: selectedAd.tipo,
+                                                            quantidade: selectedAd.quantidade || 1, // Defaulting to full ad quantity or 1
                                                             data_devolucao_prevista: selectedAd.prazo_devolucao // Capture return date
                                                         }])
                                                         if (error) throw error

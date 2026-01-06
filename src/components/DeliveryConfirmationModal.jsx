@@ -61,10 +61,36 @@ const DeliveryConfirmationModal = () => {
 
     const handleConfirmReceipt = async (transaction) => {
         try {
+            // 1. Fetch latest Ad data to ensure we have the correct Unit Price
+            const { data: adData } = await supabase
+                .from('anuncios')
+                .select('preco_unitario, quantidade')
+                .eq('id', transaction.anuncio_id)
+                .single()
+
+            // Calculate details
+            const fetchedPrice = adData?.preco_unitario
+            const fallbackPrice = transaction.anuncios?.preco_unitario
+            const unitPrice = Number(fetchedPrice) || Number(fallbackPrice) || 0
+
+            // FALLBACK FIX: If transaction quantity is 0, try to get from Ad, or default to 1
+            let quantity = Number(transaction.quantidade)
+            if (!quantity || quantity === 0) {
+                quantity = Number(adData?.quantidade) || 1
+            }
+
+            const savings = unitPrice * quantity
+
+
+
             // Update transaction status
             const { error: txError } = await supabase
                 .from('transacoes')
-                .update({ status: 'CONCLUIDO' })
+                .update({
+                    status: 'CONCLUIDO',
+                    valor_economizado: savings,
+                    quantidade: quantity // Ensure we backfill the quantity too if it was missing
+                })
                 .eq('id', transaction.id)
 
             if (txError) throw txError
@@ -77,6 +103,13 @@ const DeliveryConfirmationModal = () => {
                     .eq('id', transaction.anuncio_id)
 
                 if (adError) console.error("Warning: Failed to finalize ad status", adError)
+            }
+
+            // Report usage to Stripe
+            if (savings > 0) {
+                import('../services/stripe').then(({ reportTradeUsage }) => {
+                    reportTradeUsage(savings);
+                }).catch(console.error);
             }
 
             // Cleanup local storage

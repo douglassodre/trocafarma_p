@@ -61,11 +61,18 @@ const Home = () => {
 
     const fetchKPIs = async () => {
         try {
-            // 1. Total Savings (Economia Total): Value of items RECEIVED by this user/institution
+            // 1. Total Savings (Economia Total): Value of items RECEIVED by this institution
+            // We join with perfis_usuarios (solicitante) to filter by institution_id
             const { data: inboundData, error: inboundError } = await supabase
                 .from('transacoes')
-                .select('valor_economizado, quantidade')
-                .eq('solicitante_id', user.id)
+                .select(`
+                    valor_economizado, 
+                    quantidade,
+                    solicitante:perfis_usuarios!transacoes_solicitante_id_fkey (
+                        instituicao_id
+                    )
+                `)
+                .eq('solicitante.instituicao_id', userProfile.instituicao_id) // Filter by MY institution
                 .eq('status', 'CONCLUIDO')
 
             if (inboundError) throw inboundError
@@ -291,6 +298,7 @@ const Home = () => {
                         <p className="text-sm text-gray-500 mt-1">Visualize e edite seus itens anunciados.</p>
                     </div>
 
+
                     <div
                         onClick={() => navigate('/minhas-solicitacoes')}
                         className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group"
@@ -305,7 +313,19 @@ const Home = () => {
                         <p className="text-sm text-gray-500 mt-1">Veja o status dos seus pedidos e entregas.</p>
                     </div>
 
-                    {/* Add more cards here later */}
+                    <div
+                        onClick={() => navigate('/relatorio')}
+                        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="bg-emerald-50 p-3 rounded-lg group-hover:bg-emerald-100 transition">
+                                <TrendingUp className="h-6 w-6 text-emerald-600" />
+                            </div>
+                            <span className="text-gray-400 text-sm">Relatórios</span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">Impacto e Economia</h3>
+                        <p className="text-sm text-gray-500 mt-1">Veja o valor economizado e histórico de transações.</p>
+                    </div>
                 </div>
             </main>
         </div>

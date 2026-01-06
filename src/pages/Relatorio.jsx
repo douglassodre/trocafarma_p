@@ -11,12 +11,40 @@ const Relatorio = () => {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [transactions, setTransactions] = useState([])
+    const [filteredTransactions, setFilteredTransactions] = useState([])
+
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString())
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
 
     useEffect(() => {
         if (user) {
             fetchTransactions()
         }
     }, [user])
+
+    useEffect(() => {
+        filterTransactions()
+    }, [transactions, selectedMonth, selectedYear])
+
+    const filterTransactions = () => {
+        let filtered = [...transactions]
+
+        if (selectedMonth !== 'all') {
+            filtered = filtered.filter(t => {
+                const date = new Date(t.updated_at)
+                return date.getMonth().toString() === selectedMonth
+            })
+        }
+
+        if (selectedYear !== 'all') {
+            filtered = filtered.filter(t => {
+                const date = new Date(t.updated_at)
+                return date.getFullYear().toString() === selectedYear
+            })
+        }
+
+        setFilteredTransactions(filtered)
+    }
 
     const fetchTransactions = async () => {
         try {
@@ -58,7 +86,24 @@ const Relatorio = () => {
         window.print()
     }
 
-    const totalSavings = transactions.reduce((acc, t) => acc + (t.valor_economizado || 0), 0)
+    const totalSavings = filteredTransactions.reduce((acc, t) => acc + (t.valor_economizado || 0), 0)
+
+    const months = [
+        { value: '0', label: 'Janeiro' },
+        { value: '1', label: 'Fevereiro' },
+        { value: '2', label: 'Março' },
+        { value: '3', label: 'Abril' },
+        { value: '4', label: 'Maio' },
+        { value: '5', label: 'Junho' },
+        { value: '6', label: 'Julho' },
+        { value: '7', label: 'Agosto' },
+        { value: '8', label: 'Setembro' },
+        { value: '9', label: 'Outubro' },
+        { value: '10', label: 'Novembro' },
+        { value: '11', label: 'Dezembro' },
+    ]
+
+    const years = ['2024', '2025', '2026'] // Dynamic later if needed
 
     if (loading) return <div className="p-8 text-center">Carregando relatório...</div>
 
@@ -91,6 +136,35 @@ const Relatorio = () => {
                 </div>
             </div>
 
+            {/* Filters */}
+            <div className="max-w-5xl mx-auto px-6 md:px-8 mt-6 print:hidden">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
+                    <span className="text-sm font-semibold text-gray-700">Filtrar por período:</span>
+
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="all">Todos os Meses</option>
+                        {months.map(m => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="all">Todos os Anos</option>
+                        {years.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             <div className="max-w-5xl mx-auto p-6 md:p-8">
 
                 {/* Summary Cards */}
@@ -103,12 +177,14 @@ const Relatorio = () => {
                     </div>
                     <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 print:border-gray-200">
                         <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Itens Recebidos</p>
-                        <p className="text-3xl font-bold text-blue-800 mt-2">{transactions.length}</p>
+                        <p className="text-3xl font-bold text-blue-800 mt-2">{filteredTransactions.length}</p>
                     </div>
                     {/* Placeholder for future metric */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 print:border-gray-200">
                         <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Período</p>
-                        <p className="text-xl font-bold text-gray-800 mt-2">Todo o Histórico</p>
+                        <p className="text-xl font-bold text-gray-800 mt-2">
+                            {selectedMonth !== 'all' ? months.find(m => m.value === selectedMonth)?.label : 'Ano Completo'} {selectedYear !== 'all' ? selectedYear : ''}
+                        </p>
                     </div>
                 </div>
 
@@ -125,12 +201,12 @@ const Relatorio = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm text-gray-700">
-                            {transactions.length === 0 ? (
+                            {filteredTransactions.length === 0 ? (
                                 <tr>
                                     <td colSpan="5" className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td>
                                 </tr>
                             ) : (
-                                transactions.map((t) => (
+                                filteredTransactions.map((t) => (
                                     <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50 print:hover:bg-transparent">
                                         <td className="p-4">{new Date(t.updated_at).toLocaleDateString()}</td>
                                         <td className="p-4">
@@ -163,7 +239,7 @@ const Relatorio = () => {
                     <p>Relatório gerado automaticamente pelo sistema Trocafarma.</p>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
 
