@@ -17,10 +17,10 @@ const Relatorio = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
 
     useEffect(() => {
-        if (user) {
+        if (user && userProfile) {
             fetchTransactions()
         }
-    }, [user])
+    }, [user, userProfile])
 
     useEffect(() => {
         filterTransactions()
@@ -31,14 +31,14 @@ const Relatorio = () => {
 
         if (selectedMonth !== 'all') {
             filtered = filtered.filter(t => {
-                const date = new Date(t.updated_at)
+                const date = new Date(t.created_at)
                 return date.getMonth().toString() === selectedMonth
             })
         }
 
         if (selectedYear !== 'all') {
             filtered = filtered.filter(t => {
-                const date = new Date(t.updated_at)
+                const date = new Date(t.created_at)
                 return date.getFullYear().toString() === selectedYear
             })
         }
@@ -62,15 +62,15 @@ const Relatorio = () => {
                         preco_unitario,
                         usuario_id,
                         instituicoes (nome_fantasia)
+                    ),
+                    solicitante:perfis_usuarios!transacoes_solicitante_id_fkey (
+                        instituicao_id
                     )
                 `)
-                .or(`solicitante_id.eq.${user.id},anuncios.usuario_id.eq.${user.id}`) // Needs inner join filtering for query on foreign table, but or filter with inner join is tricky in one go.
-                // Let's keep it simple: fetch where solicitante_id is user (Economy) OR where user is owner (Loss Avoided).
-                // Actually supabase .or across relations is hard.
-                // Let's fetch Inbound (Savings) primarily as requested "Relatório de economias".
-                .eq('solicitante_id', user.id)
+                .eq('solicitante.instituicao_id', userProfile?.instituicoes?.id || userProfile?.instituicao_id) // Filter by Institution using Alias
                 .eq('status', 'CONCLUIDO')
-                .order('updated_at', { ascending: false })
+                .eq('status', 'CONCLUIDO')
+                .order('created_at', { ascending: false })
 
             if (error) throw error
             setTransactions(data || [])
@@ -208,7 +208,7 @@ const Relatorio = () => {
                             ) : (
                                 filteredTransactions.map((t) => (
                                     <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50 print:hover:bg-transparent">
-                                        <td className="p-4">{new Date(t.updated_at).toLocaleDateString()}</td>
+                                        <td className="p-4">{new Date(t.created_at).toLocaleDateString()}</td>
                                         <td className="p-4">
                                             <span className="font-medium block">{t.anuncios?.descricao_customizada}</span>
                                             <span className="text-xs text-gray-400 print:hidden">Ref: {t.anuncios?.instituicoes?.nome_fantasia}</span>

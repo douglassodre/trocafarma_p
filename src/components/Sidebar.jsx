@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, Package, LogOut, Clock, Search } from 'lucide-react'
+import { Home, PlusCircle, Package, LogOut, Clock, Search, BarChart3 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext' // Assuming this hook allows signing out
 import { cn } from '../lib/utils'
 
@@ -26,6 +26,7 @@ const Sidebar = () => {
         { label: 'Meus Anúncios', icon: Package, path: '/meus-anuncios' },
         { label: 'Solicitações', icon: Clock, path: '/minhas-solicitacoes' }, // New Link
         { label: 'Novo Anúncio', icon: PlusCircle, path: '/novo-anuncio' },
+        { label: 'Relatórios de Impacto', icon: BarChart3, path: '/relatorio' },
         { label: 'Aprovações', icon: Clock, path: '/pending-approval' },
     ]
 
