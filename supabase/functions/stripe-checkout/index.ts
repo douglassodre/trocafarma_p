@@ -1,6 +1,6 @@
-// Setup native Deno serve
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3?target=deno";
-import Stripe from "https://esm.sh/stripe@14.25.0?target=deno";
+// Setup native Deno serve with npm specifiers
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
+import Stripe from "npm:stripe@^14.25.0";
 
 // Stripe init moved inside handler for safety
 // const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', ...);
