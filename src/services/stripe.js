@@ -14,9 +14,14 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_t
  */
 export const activatePremium = async (userId) => {
     try {
+        // Get current user email for pre-filling
+        const { data: { user } } = await supabase.auth.getUser();
+
         const { data, error } = await supabase.functions.invoke('stripe-checkout', {
             body: {
-                successUrl: window.location.origin, // Redirect back to home/current page
+                userId: userId, // explicitly passed as requested
+                email: user?.email,
+                successUrl: window.location.origin,
                 cancelUrl: window.location.origin
             }
         });
