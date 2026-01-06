@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
             throw new Error("Invalid JSON body");
         }
 
-        const { successUrl, cancelUrl } = body; // userId and email are now from authenticated user
+        const { userId, email, successUrl, cancelUrl } = body;
+        console.log('Parsed User ID:', userId);
         console.log('Parsed successUrl:', successUrl);
         console.log('Parsed cancelUrl:', cancelUrl);
 
@@ -88,13 +89,14 @@ Deno.serve(async (req) => {
             line_items: [
                 {
                     price: finalPriceId,
+                    // quantity: 1, // REMOVED: Metered prices cannot have quantity
                 },
             ],
             mode: 'subscription',
             success_url: successUrl ?? 'http://localhost:5173/profile?session_id={CHECKOUT_SESSION_ID}',
             cancel_url: cancelUrl ?? 'http://localhost:5173/profile',
-            client_reference_id: user.id,
-            customer_email: user.email,
+            client_reference_id: userId || user?.id, // Use passed userId or authenticated one
+            customer_email: email || user?.email, // Use passed email or authenticated one
         });
 
         console.log("Session created:", session.id);
