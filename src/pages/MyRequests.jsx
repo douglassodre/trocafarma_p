@@ -72,6 +72,14 @@ const MyRequests = () => {
                 if (adError) console.error("Warning: Failed to finalize ad status", adError)
             }
 
+            // Report usage to Stripe
+            // We use the transaction quantity as the metered value
+            if (transaction.quantidade) {
+                import('../services/stripe').then(({ reportTradeUsage }) => {
+                    reportTradeUsage(transaction.quantidade);
+                }).catch(console.error);
+            }
+
             // Remove snooze if exists (cleanup)
             localStorage.removeItem(`delivery_snooze_${transaction.id}`)
 

@@ -99,9 +99,27 @@ const Home = () => {
                     <div className="relative z-10 flex flex-col sm:flex-row justify-between items-center">
                         <div className="mb-6 sm:mb-0">
                             <h2 className="text-3xl font-bold mb-2">Bem-vindo ao Painel</h2>
-                            <p className="text-indigo-100 max-w-xl">
+                            <p className="text-indigo-100 max-w-xl mb-4">
                                 Sua instituição <span className="font-semibold text-white">{userProfile.instituicoes?.nome_fantasia}</span> está ativa e pronta para conectar.
                             </p>
+
+                            {userProfile?.is_premium ? (
+                                <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-full text-white text-sm font-semibold">
+                                    <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                                    </span>
+                                    <span>Premium Ativo</span>
+                                    <span className="text-xs font-normal opacity-80 border-l border-white/30 pl-2 ml-1">Assinatura Gratuita</span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => import('../services/stripe').then(m => m.activatePremium(user.id))}
+                                    className="flex items-center space-x-2 bg-yellow-500 text-yellow-900 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-yellow-400 transition transform hover:-translate-y-0.5 text-sm"
+                                >
+                                    <span>Ativar Benefícios Premium (Grátis)</span>
+                                </button>
+                            )}
                         </div>
                         <button
                             onClick={() => navigate('/novo-anuncio')}
