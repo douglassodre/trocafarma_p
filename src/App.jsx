@@ -17,6 +17,7 @@ import ReturnProcess from './pages/ReturnProcess'
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import AdDetails from './pages/AdDetails'
+import LandingPage from './pages/LandingPage'
 import { HelmetProvider } from 'react-helmet-async'
 
 function App() {
@@ -78,7 +79,7 @@ function App() {
               </DashboardLayout>
             } />
 
-            <Route path="/" element={
+            <Route path="/dashboard" element={
               <DashboardLayout>
                 <Home />
               </DashboardLayout>
@@ -89,6 +90,8 @@ function App() {
                 <Explore />
               </DashboardLayout>
             } />
+
+            <Route path="/" element={<LandingPage />} />
 
             <Route path="*" element={<Navigate to="/signin" />} />
           </Routes>
