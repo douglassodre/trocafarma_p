@@ -30,9 +30,10 @@ const Sidebar = () => {
         { label: 'Aprovações', icon: Clock, path: '/pending-approval' },
     ]
 
-    // Add "Equipe" if admin
+    // Add "Equipe" and "Aprovações" if admin
     if (userProfile?.role === 'UNIDADE_ADM') {
-        navItems.splice(4, 0, { label: 'Equipe', icon: Search, path: '/equipe' }) // Insert before New Ad or appropriate place
+        navItems.splice(4, 0, { label: 'Equipe', icon: Search, path: '/equipe' })
+        navItems.push({ label: 'Aprovações', icon: Clock, path: '/pending-ads' }) // Added Approvals
     }
 
     return (

@@ -36,7 +36,7 @@ const SignIn = () => {
                 if (profile?.instituicoes?.status === 'PENDENTE') {
                     navigate('/pending-approval')
                 } else {
-                    navigate('/')
+                    navigate('/dashboard')
                 }
             }
         } catch (err) {

@@ -4,7 +4,19 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, TrendingUp, ShieldCheck, CheckCircle, MapPin } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom'; // Added useNavigate
+import { useAuth } from '../contexts/AuthContext'; // Added useAuth
+import { useEffect } from 'react'; // Added useEffect
+
 const LandingPage = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (user) {
+            navigate('/dashboard');
+        }
+    }, [user, navigate]);
     return (
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50 overflow-x-hidden">
             <Helmet>
@@ -56,16 +68,17 @@ const LandingPage = () => {
                     </div>
 
                     <div className="relative">
-                        {/* Placeholder for Adobe IA Image */}
-                        <div className="aspect-[4/3] rounded-2xl bg-gray-200 border-2 border-dashed border-gray-300 flex items-center justify-center relative overflow-hidden shadow-2xl">
-                            <div className="text-center p-6">
-                                <p className="text-gray-400 font-medium mb-2">[Espaço para Imagem Adobe IA]</p>
-                                <p className="text-xs text-gray-400">Sugestão: Gestor hospitalar usando tablet em almoxarifado moderno</p>
-                            </div>
-                            {/* Abstract decorative elements */}
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-green-200 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
-                            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
+                        <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl relative z-10">
+                            <img
+                                src="/hero-image.jpg"
+                                alt="Gestor hospitalar otimizando estoque com Trocafarma"
+                                className="w-full h-full object-cover transform transition-transform duration-700 hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-tr from-green-900/10 to-transparent pointer-events-none"></div>
                         </div>
+                        {/* Decoratve background elements */}
+                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-green-300 rounded-full mix-blend-multiply filter blur-2xl opacity-50 z-0 animate-pulse"></div>
+                        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-300 rounded-full mix-blend-multiply filter blur-2xl opacity-50 z-0 animate-pulse delay-1000"></div>
                     </div>
                 </div>
             </section>

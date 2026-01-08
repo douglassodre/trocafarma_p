@@ -9,6 +9,7 @@ import MyAds from './pages/MyAds'
 import MyRequests from './pages/MyRequests' // Imported
 import Relatorio from './pages/Relatorio' // Imported
 import ManageUsers from './pages/ManageUsers'
+import PendingAds from './pages/PendingAds'
 import { AuthProvider } from './contexts/AuthContext'
 
 import DashboardLayout from './layouts/DashboardLayout'
@@ -76,6 +77,12 @@ function App() {
             <Route path="/equipe" element={
               <DashboardLayout>
                 <ManageUsers />
+              </DashboardLayout>
+            } />
+
+            <Route path="/pending-ads" element={
+              <DashboardLayout>
+                <PendingAds />
               </DashboardLayout>
             } />
 

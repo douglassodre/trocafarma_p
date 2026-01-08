@@ -362,6 +362,10 @@ const NewAd = () => {
             const expirationDateObj = new Date()
             expirationDateObj.setDate(expirationDateObj.getDate() + daysToAdd)
 
+            const statusInicial = (userProfile?.requer_aprovacao === true && userProfile?.role !== 'UNIDADE_ADM')
+                ? 'AGUARDANDO_APROVACAO'
+                : 'ATIVO';
+
             const payload = {
                 usuario_id: user.id,
                 instituicao_id: userProfile.instituicao_id,
@@ -377,7 +381,7 @@ const NewAd = () => {
                 itens_desejados_troca: formData.type === 'PERMUTA' ? formData.exchangeItems : null,
                 logistica: formData.logistics,
                 data_expiracao: expirationDateObj.toISOString(),
-                status: 'ATIVO',
+                status: statusInicial, // Use dynamic status
                 cidade: formData.cidade,
                 estado: formData.estado,
                 foto_url: finalPhotoUrl
@@ -400,8 +404,13 @@ const NewAd = () => {
 
             if (error) throw error
 
-            alert(isEditMode ? 'Anúncio atualizado com sucesso!' : 'Anúncio criado com sucesso!')
-            navigate(isEditMode ? '/meus-anuncios' : '/')
+            if (statusInicial === 'AGUARDANDO_APROVACAO') {
+                alert('Anúncio enviado para aprovação do Administrador!')
+                navigate('/')
+            } else {
+                alert(isEditMode ? 'Anúncio atualizado com sucesso!' : 'Anúncio criado com sucesso!')
+                navigate(isEditMode ? '/meus-anuncios' : '/')
+            }
 
         } catch (err) {
             console.error(err)
@@ -647,21 +656,38 @@ const NewAd = () => {
                         </div>
 
                         {/* Type Logic */}
+                        {/* Type Logic */}
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                             <Label className="mb-3 block">Tipo de Negociação</Label>
+
+                            {/* Alert if permissions are restricted */}
+                            {(!userProfile?.pode_doar && !userProfile?.pode_emprestar && !userProfile?.pode_permutar && userProfile?.role !== 'UNIDADE_ADM') && (
+                                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">
+                                    Seu usuário não possui permissão para criar anúncios. Contate o administrador.
+                                </div>
+                            )}
+
                             <div className="flex items-center space-x-4">
-                                <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'DOACAO' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                    <input type="radio" name="type" value="DOACAO" checked={formData.type === 'DOACAO'} onChange={handleChange} className="sr-only" />
-                                    <span className="font-semibold text-sm">Doação</span>
-                                </label>
-                                <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'EMPRESTIMO' ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                    <input type="radio" name="type" value="EMPRESTIMO" checked={formData.type === 'EMPRESTIMO'} onChange={handleChange} className="sr-only" />
-                                    <span className="font-semibold text-sm">Empréstimo</span>
-                                </label>
-                                <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'PERMUTA' ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                    <input type="radio" name="type" value="PERMUTA" checked={formData.type === 'PERMUTA'} onChange={handleChange} className="sr-only" />
-                                    <span className="font-semibold text-sm">Permuta</span>
-                                </label>
+                                {(userProfile?.pode_doar !== false || userProfile?.role === 'UNIDADE_ADM') && (
+                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'DOACAO' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
+                                        <input type="radio" name="type" value="DOACAO" checked={formData.type === 'DOACAO'} onChange={handleChange} className="sr-only" />
+                                        <span className="font-semibold text-sm">Doação</span>
+                                    </label>
+                                )}
+
+                                {(userProfile?.pode_emprestar !== false || userProfile?.role === 'UNIDADE_ADM') && (
+                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'EMPRESTIMO' ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
+                                        <input type="radio" name="type" value="EMPRESTIMO" checked={formData.type === 'EMPRESTIMO'} onChange={handleChange} className="sr-only" />
+                                        <span className="font-semibold text-sm">Empréstimo</span>
+                                    </label>
+                                )}
+
+                                {(userProfile?.pode_permutar !== false || userProfile?.role === 'UNIDADE_ADM') && (
+                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'PERMUTA' ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
+                                        <input type="radio" name="type" value="PERMUTA" checked={formData.type === 'PERMUTA'} onChange={handleChange} className="sr-only" />
+                                        <span className="font-semibold text-sm">Permuta</span>
+                                    </label>
+                                )}
                             </div>
 
 
