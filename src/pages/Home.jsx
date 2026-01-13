@@ -1,14 +1,16 @@
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import UrgencyResponseModal from '../components/UrgencyResponseModal'
 
 import logo from '../assets/logo.png'
 
 const Home = () => {
     const { user, userProfile, signOut } = useAuth()
     const navigate = useNavigate()
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const handleLogout = async () => {
         await signOut()
@@ -17,6 +19,9 @@ const Home = () => {
 
     const [inTransitItems, setInTransitItems] = useState([])
     const inTransitCount = inTransitItems.length
+
+    // Urgency Response Modal State
+    const [responseModalId, setResponseModalId] = useState(null)
 
     // KPI State
     const [kpis, setKpis] = useState({
@@ -33,8 +38,20 @@ const Home = () => {
         if (user) {
             fetchInTransitItems()
             fetchKPIs()
+
+            // Check for help_urgency param
+            const helpId = searchParams.get('help_urgency')
+            if (helpId) {
+                setResponseModalId(helpId)
+            }
         }
-    }, [user, userProfile, navigate])
+    }, [user, userProfile, navigate, searchParams])
+
+    const closeResponseModal = () => {
+        setResponseModalId(null)
+        setSearchParams({}) // Clear param
+        // Optionally refresh data if needed
+    }
 
     const fetchInTransitItems = async () => {
         try {
@@ -119,6 +136,15 @@ const Home = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            {/* Response Modal */}
+            {responseModalId && (
+                <UrgencyResponseModal
+                    urgencyId={responseModalId}
+                    onClose={closeResponseModal}
+                    currentUser={user}
+                />
+            )}
+
             <header className="bg-white shadow-sm border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">

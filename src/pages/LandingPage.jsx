@@ -4,13 +4,16 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, TrendingUp, ShieldCheck, CheckCircle, MapPin } from 'lucide-react';
 
-import { useNavigate } from 'react-router-dom'; // Added useNavigate
-import { useAuth } from '../contexts/AuthContext'; // Added useAuth
-import { useEffect } from 'react'; // Added useEffect
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import UrgencyWizard from '../components/UrgencyWizard';
+import ActiveUrgencies from '../components/ActiveUrgencies';
 
 const LandingPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [showUrgencyWizard, setShowUrgencyWizard] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -41,6 +44,8 @@ const LandingPage = () => {
                 </nav>
             </header>
 
+            <ActiveUrgencies />
+
             {/* Hero Section (Attention) */}
             <section className="relative pt-20 pb-32 md:pt-32 md:pb-48 px-6 md:px-12 overflow-hidden bg-white">
                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-green-100 via-transparent to-transparent opacity-50 pointer-events-none"></div>
@@ -58,9 +63,15 @@ const LandingPage = () => {
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Link to="/signup" className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white transition-all duration-200 bg-green-600 border border-transparent rounded-full shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 hover:scale-105">
-                                Ativar Agora (R$ 0,00/mês)
-                                <ArrowRight className="ml-2 w-5 h-5" />
+                                Explorar Inventário
                             </Link>
+                            <button
+                                onClick={() => setShowUrgencyWizard(true)}
+                                className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-red-600 transition-all duration-200 bg-red-50 border border-red-200 rounded-full shadow-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 hover:scale-105"
+                            >
+                                Ruptura de Estoque? Solicite Agora
+                                <ArrowRight className="ml-2 w-5 h-5" />
+                            </button>
                         </div>
                         <p className="text-sm text-gray-500 mt-4 flex items-center">
                             <CheckCircle className="w-4 h-4 text-green-500 mr-1" /> Sem cartão de crédito necessário
@@ -264,6 +275,7 @@ const LandingPage = () => {
                     </div>
                 </div>
             </footer>
+            <UrgencyWizard isOpen={showUrgencyWizard} onClose={() => setShowUrgencyWizard(false)} />
         </div>
     );
 };

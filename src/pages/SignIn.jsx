@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -7,6 +7,7 @@ import logo from '../assets/logo.png'
 
 const SignIn = () => {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const { signIn } = useAuth()
 
     const [email, setEmail] = useState('')
@@ -25,18 +26,23 @@ const SignIn = () => {
 
             if (data.user) {
                 // Fetch profile to decide direction
-                // We fetch directly here to ensure we have the latest status before redirecting
-                // avoiding race conditions with the context update
                 const { data: profile } = await supabase
                     .from('perfis_usuarios')
                     .select('*, instituicoes (status)')
                     .eq('id', data.user.id)
                     .single()
 
+                const urgencyId = searchParams.get('urgency_id')
+                const action = searchParams.get('action')
+
                 if (profile?.instituicoes?.status === 'PENDENTE') {
                     navigate('/pending-approval')
                 } else {
-                    navigate('/dashboard')
+                    if (urgencyId) {
+                        navigate(`/dashboard?help_urgency=${urgencyId}`)
+                    } else {
+                        navigate('/dashboard')
+                    }
                 }
             }
         } catch (err) {
@@ -59,7 +65,7 @@ const SignIn = () => {
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
                         Ou{' '}
-                        <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
+                        <Link to={`/signup?${searchParams.toString()}`} className="font-medium text-indigo-600 hover:text-indigo-500">
                             crie uma nova conta
                         </Link>
                     </p>

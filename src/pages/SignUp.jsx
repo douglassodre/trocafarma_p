@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
 
@@ -7,6 +7,7 @@ import logo from '../assets/logo.png'
 
 const SignUp = () => {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -162,7 +163,12 @@ const SignUp = () => {
                 return
             }
 
-            navigate('/') // Redirect to dashboard/home
+            const urgencyId = searchParams.get('urgency_id')
+            if (urgencyId) {
+                navigate(`/dashboard?help_urgency=${urgencyId}`)
+            } else {
+                navigate('/') // Redirect to dashboard/home
+            }
 
         } catch (err) {
             console.error(err)
@@ -174,7 +180,13 @@ const SignUp = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl">
+            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl relative">
+                <button
+                    onClick={() => navigate('/')}
+                    className="absolute top-4 left-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                >
+                    ← Voltar
+                </button>
                 <div className="flex justify-center mb-4">
                     <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
                 </div>
@@ -207,10 +219,11 @@ const SignUp = () => {
                                 name="name"
                                 type="text"
                                 required
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                readOnly
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 bg-gray-100 cursor-not-allowed focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                 value={formData.name}
-                                onChange={handleChange}
                             />
+                            <p className="mt-1 text-xs text-gray-500">Preenchido automaticamente verifique o CPF.</p>
                         </div>
 
                         <div className="mb-4">
