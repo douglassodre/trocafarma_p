@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, CheckCircle, Truck, Building2, User, Coins, Calendar, RefreshCw } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, Truck, Building2, User, Coins, Calendar, RefreshCw, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
@@ -13,9 +13,19 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
     const [formData, setFormData] = useState({
         type: 'DOACAO', // DOACAO, EMPRESTIMO, PERMUTA
         unitPrice: '',
+        lote: '',
+        lote: '',
+        validade: '',
         returnDate: '',
-        exchangeItems: ''
+        exchangeItems: '',
+        quantity: ''
     });
+
+    useEffect(() => {
+        if (urgency) {
+            setFormData(prev => ({ ...prev, quantity: urgency.quantidade }));
+        }
+    }, [urgency]);
 
     useEffect(() => {
         if (urgencyId) fetchUrgencyDetails();
@@ -44,12 +54,55 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    // Currency Mask Helpers
+    const formatCurrency = (value) => {
+        if (!value) return '';
+        const number = value.replace(/\D/g, ''); // Remove non-digits
+        const amount = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2
+        }).format(number / 100);
+        return amount;
+    };
+
+    const parseCurrency = (value) => {
+        if (!value) return 0;
+        return parseFloat(value.replace(/[^\d,]/g, '').replace(',', '.')) / 100; // This handles the raw input better if manual parsing is needed, but usually we parse the valid numeric string.
+        // Actually for the "R$ 1.234,56" string:
+        // 1. Remove non-numeric chars except comma
+        const cleanString = value.replace(/\D/g, '');
+        return parseFloat(cleanString) / 100;
+    };
+
+    const handlePriceChange = (e) => {
+        const rawValue = e.target.value;
+        const formatted = formatCurrency(rawValue);
+        setFormData({ ...formData, unitPrice: formatted });
+    };
+
     const handleConfirmMatch = async () => {
         if (!urgency) return;
 
         // Basic Validation
         if (!formData.unitPrice) {
             alert("Por favor, informe o preço unitário (ou custo) do item.");
+            return;
+        }
+
+        if (!formData.quantity || formData.quantity <= 0) {
+            alert("Por favor, informe uma quantidade válida.");
+            return;
+        }
+
+        const numericPrice = parseCurrency(formData.unitPrice);
+
+        if (!formData.lote) {
+            alert("Por favor, informe o número do lote.");
+            return;
+        }
+        if (!formData.validade) {
+            alert("Por favor, informe a data de validade.");
             return;
         }
         if (formData.type === 'EMPRESTIMO' && !formData.returnDate) {
@@ -70,9 +123,12 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                 instituicao_id: currentUser.user_metadata?.instituicao_id || null,
                 item_codigo: urgency.item_codigo || 'GENERIC',
                 descricao_customizada: `[URGÊNCIA] ${urgency.item_nome}`,
-                quantidade: urgency.quantidade,
-                preco_unitario: formData.unitPrice,
-                valor_total_estoque: parseFloat(formData.unitPrice) * urgency.quantidade,
+                descricao_customizada: `[URGÊNCIA] ${urgency.item_nome}`,
+                quantidade: formData.quantity,
+                preco_unitario: numericPrice,
+                valor_total_estoque: numericPrice * formData.quantity,
+                lote: formData.lote,
+                data_vencimento: formData.validade,
                 tipo: formData.type,
                 prazo_devolucao: formData.type === 'EMPRESTIMO' ? formData.returnDate : null,
                 itens_desejados_troca: formData.type === 'PERMUTA' ? formData.exchangeItems : null,
@@ -96,24 +152,22 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
             if (adError) throw adError;
 
-            // 2. Create Transaction linked to the new Ad
-            const { data: trans, error: transError } = await supabase
-                .from('transacoes')
-                .insert([{
-                    anuncio_id: newAd.id,
-                    item_codigo: urgency.item_codigo || 'GENERIC',
-                    quantidade: urgency.quantidade,
-                    solicitante_id: urgency.usuario_id,
-                    anunciante_id: currentUser.id,
-                    status: 'PENDENTE',
-                    tipo: formData.type,
-                    valor_economizado: 0,
-                    data_solicitacao: new Date().toISOString()
-                }])
-                .select()
-                .single();
+            // 2. Create Transaction via Backend (Stripe Billing)
+            const unitPriceInCents = parseInt(formData.unitPrice.replace(/\D/g, ''), 10) || 0;
 
-            if (transError) throw transError;
+            const { data: { transaction: trans }, error: transError } = await supabase.functions.invoke('create-transaction', {
+                body: {
+                    anuncio_id: newAd.id,
+                    fornecedor_id: currentUser.id, // Current user is answering
+                    status: 'PENDENTE', // 'PENDENTE' until accepted? Or 'SOLICITADO'? Original was 'PENDENTE'
+                    tipo: formData.type,
+                    quantidade: formData.quantity,
+                    data_devolucao_prevista: formData.type === 'EMPRESTIMO' ? formData.returnDate : null,
+                    unit_price: unitPriceInCents
+                }
+            });
+
+            if (transError) throw new Error(transError.message || 'Error executing create-transaction');
 
             // 3. Update Urgency Status
             const { error: updateError } = await supabase
@@ -138,7 +192,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
@@ -178,7 +232,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                         </button>
                     </div>
                 ) : (
-                    <div className="flex flex-col h-full">
+                    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div className="p-6 border-b border-gray-100 bg-gray-50">
                             <div className="flex items-center gap-3 text-red-600">
                                 <AlertTriangle className="w-6 h-6" />
@@ -187,7 +241,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                             <p className="text-sm text-gray-500 mt-1">Configure como você irá atender esta solicitação.</p>
                         </div>
 
-                        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                        <div className="p-6 overflow-y-auto space-y-6 flex-1 min-h-0">
                             {/* Request Info */}
                             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Solicitação</span>
@@ -233,16 +287,61 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         Preço Unitário / Custo (R$)
                                     </label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         name="unitPrice"
                                         value={formData.unitPrice}
-                                        onChange={handleChange}
-                                        placeholder="0,00"
-                                        step="0.01"
-                                        min="0"
+                                        onChange={handlePriceChange}
+                                        placeholder="R$ 0,00"
                                         className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Necessário para cálculo de taxas e economia.</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Necessário para cálculo de taxas e economia. <strong>Este valor não representa uma venda.</strong>
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                        <Package className="w-4 h-4" />
+                                        Quantidade Disponível (Total Solicitado: {urgency.quantidade})
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="quantity"
+                                        value={formData.quantity}
+                                        onChange={handleChange}
+                                        min="1"
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                            <Package className="w-4 h-4" />
+                                            Lote
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="lote"
+                                            value={formData.lote}
+                                            onChange={handleChange}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                            placeholder="Nº Lote"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                            <Calendar className="w-4 h-4" />
+                                            Validade
+                                        </label>
+                                        <input
+                                            type="date"
+                                            name="validade"
+                                            value={formData.validade}
+                                            onChange={handleChange}
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                        />
+                                    </div>
                                 </div>
 
                                 {formData.type === 'EMPRESTIMO' && (
@@ -281,7 +380,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-gray-100 bg-white">
+                        <div className="p-6 border-t border-gray-100 bg-white flex-shrink-0">
                             <button
                                 onClick={handleConfirmMatch}
                                 disabled={processing}

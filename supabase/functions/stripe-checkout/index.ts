@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
 
         console.log("Creating Checkout Session...");
         const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
+            payment_method_types: ['boleto', 'card'],
             line_items: [
                 {
                     price: finalPriceId,

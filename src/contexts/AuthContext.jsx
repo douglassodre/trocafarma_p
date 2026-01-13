@@ -76,6 +76,10 @@ export const AuthProvider = ({ children }) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setUser(session?.user ?? null)
             if (session?.user) {
+                // await fetchProfile(session.user.id) // Optimization: usually getSession handles initial load. 
+                // But on login, we need to fetch. 
+                // Let's keep profile fetching simple or rely on getSession.
+                // Re-fetching profile on every auth change is safer.
                 await fetchProfile(session.user.id)
             } else {
                 setUserProfile(null)

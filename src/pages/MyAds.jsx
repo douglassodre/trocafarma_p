@@ -305,7 +305,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {ads.map((ad) => (
                             <div key={ad.id}
-                                className={`group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${ad.status !== 'ATIVO' && ad.status !== 'RESERVADO' ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                                className={`group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${ad.status !== 'ATIVO' && ad.status !== 'RESERVADO' && ad.status !== 'RESERVADO_MATCH' ? 'opacity-75 grayscale-[0.5]' : ''}`}
                             >
                                 {/* Interest Badge */}
                                 {getInterestCount(ad) > 0 && (
@@ -343,11 +343,11 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                             {ad.tipo}
                                         </span>
                                         <span className={`flex items-center space-x-1 text-xs font-bold border rounded-md px-2 py-1
-                                            ${ad.status === 'ATIVO' ? 'border-green-200 text-green-700 bg-green-50' :
+                                            ${(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? 'border-green-200 text-green-700 bg-green-50' :
                                                 ad.status === 'RESERVADO' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
                                                     'border-gray-200 text-gray-500 bg-gray-50'}`}>
-                                            {ad.status === 'ATIVO' ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                                            <span>{ad.status}</span>
+                                            {(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                            <span>{ad.status === 'RESERVADO_MATCH' ? 'ATIVO (MATCH)' : ad.status}</span>
                                         </span>
                                     </div>
 
@@ -449,15 +449,15 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                     {selectedAd.transacoes.map(tx => (
                                         <div key={tx.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition">
                                             <div className="flex flex-col sm:flex-row justify-between gap-4">
-                                                <div className="space-y-1">
+                                                <div className="space-y-2 flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`px-2 py-0.5 rounded text-xs font-bold
-                                                            ${tx.status === 'SOLICITADO' ? 'bg-yellow-100 text-yellow-700' :
+                                                            ${tx.status === 'SOLICITADO' || tx.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-700' :
                                                                 tx.status === 'EM_ANDAMENTO' ? 'bg-blue-100 text-blue-700' :
                                                                     tx.status === 'EM_TRANSITO' ? 'bg-orange-100 text-orange-700' :
                                                                         tx.status === 'CONCLUIDO' ? 'bg-green-100 text-green-700' :
                                                                             'bg-red-100 text-red-700'}`}>
-                                                            {tx.status}
+                                                            {tx.status === 'PENDENTE' ? 'AGUARDANDO ACEITE' : tx.status}
                                                         </span>
                                                         <span className="text-xs text-gray-400">
                                                             {new Date(tx.created_at).toLocaleDateString()}
@@ -470,8 +470,42 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                         <span className="font-medium">Responsável:</span> {tx.solicitante?.nome || 'N/A'}
                                                     </p>
                                                     <p className="text-sm text-gray-600">
+                                                        <span className="font-medium">Responsável:</span> {tx.solicitante?.nome || 'N/A'}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
                                                         <span className="font-medium">Logística:</span> {selectedAd.logistica || 'A combinar'}
                                                     </p>
+
+                                                    {/* Financial Summary for Pending Match Transactions */}
+                                                    {tx.status === 'PENDENTE' && selectedAd.status === 'RESERVADO_MATCH' && (
+                                                        <div className="mt-2 bg-gray-50 p-3 rounded-lg border border-indigo-100 text-sm">
+                                                            <h5 className="font-bold text-gray-700 mb-2 border-b border-gray-200 pb-1">Resumo da Transação</h5>
+                                                            <div className="grid grid-cols-2 gap-y-1 gap-x-4">
+                                                                <span className="text-gray-500">Valor Unitário:</span>
+                                                                <span className="text-right font-medium">
+                                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedAd.preco_unitario || 0)}
+                                                                </span>
+                                                                <span className="text-gray-500">Quantidade:</span>
+                                                                <span className="text-right font-medium">{tx.quantidade}</span>
+                                                                <span className="text-gray-500">Taxa Trocafarma (10%):</span>
+                                                                <span className="text-right font-medium text-orange-600">
+                                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(((selectedAd.preco_unitario || 0) * tx.quantidade) * 0.10)}
+                                                                </span>
+                                                                <div className="col-span-2 border-t border-gray-200 mt-1 pt-1 flex justify-between font-bold text-indigo-700">
+                                                                    <span>Total Solicitante:</span>
+                                                                    <span>
+                                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                                                            ((selectedAd.preco_unitario || 0) * tx.quantidade) * 1.10
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-2 text-xs text-center text-orange-600 font-medium bg-orange-50 p-1.5 rounded">
+                                                                <Clock className="w-3 h-3 inline mr-1" />
+                                                                Aguardando aceite financeiro do solicitante...
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex flex-col gap-2 min-w-[140px]">

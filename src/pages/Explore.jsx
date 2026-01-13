@@ -3,11 +3,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
     Search, Filter, MapPin, Calendar,
-    Package, ArrowRight, X, MessageCircle, RefreshCw, Truck, Share2
+    Package, ArrowRight, X, MessageCircle, RefreshCw, Truck, Share2, AlertTriangle
 } from 'lucide-react'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { generateReceiptPDF } from '../utils/pdfGenerator'
+import UrgencyResponseModal from '../components/UrgencyResponseModal'
 
 const Explore = () => {
     const { user } = useAuth()
@@ -22,6 +23,7 @@ const Explore = () => {
 
     const [selectedAd, setSelectedAd] = useState(null) // For Modal
     const [modalView, setModalView] = useState('DETAILS') // DETAILS, NEXT_STEPS
+    const [activeUrgencyId, setActiveUrgencyId] = useState(null)
 
     // Mock Categories based on typical data, user mentioned these examples
     const categories = [
@@ -65,17 +67,46 @@ const Explore = () => {
         try {
             setLoading(true)
 
+            // 1. Fetch Urgencies (Active)
+            const { data: urgenciesData, error: urgencyError } = await supabase
+                .from('solicitacoes_urgentes')
+                .select('*')
+                .eq('status', 'ATIVA')
+
+            if (urgencyError) throw urgencyError
+
+            const formattedUrgencies = (urgenciesData || []).map(u => ({
+                id: `urg_${u.id}`, // Prefix to avoid collision
+                original_id: u.id,
+                item_codigo: 'URGÊNCIA',
+                descricao_customizada: u.item_nome,
+                tipo: 'URGENCIA',
+                isUrgency: true,
+                quantidade: u.quantidade,
+                instituicoes: { nome_fantasia: u.contato_instituicao || 'Instituição Parceira' },
+                cidade: u.cidade || 'Bahia',
+                estado: 'BA',
+                lote: 'N/A',
+                data_vencimento: new Date().toISOString(),
+                created_at: u.created_at,
+                // Add urgency specific fields if needed
+                nivel_urgencia: u.nivel_urgencia_label
+            }))
+
+            // 2. Fetch Regular Ads
             // Fixed Query: Fetching location from 'anuncios' table only.
             // Removed 'cidade, estado' from instituicoes join as they don't exist there.
-            const { data, error } = await supabase
+            const { data: adsData, error: adsError } = await supabase
                 .from('anuncios')
                 .select('*, instituicoes (nome_fantasia), perfis_usuarios (whatsapp)')
                 .eq('status', 'ATIVO')
                 .neq('usuario_id', user.id) // Restore: Don't show my own ads
                 .order('created_at', { ascending: false })
 
-            if (error) throw error
-            setAds(data || [])
+            if (adsError) throw adsError
+
+            // Merge: Urgencies First
+            setAds([...formattedUrgencies, ...adsData])
         } catch (error) {
             console.error('Error fetching ads:', error)
         } finally {
@@ -229,7 +260,8 @@ const Explore = () => {
                                             <span className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full
                                                 ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
                                                     ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
-                                                        'bg-orange-100 text-orange-700'}`}>
+                                                        ad.tipo === 'PERMUTA' ? 'bg-orange-100 text-orange-700' :
+                                                            'bg-red-100 text-red-700 animate-pulse'}`}>
                                                 {ad.tipo}
                                             </span>
                                             {/* Logistics Icon Badge */}
@@ -267,17 +299,17 @@ const Explore = () => {
                                         </div>
                                         <div className="flex items-center text-sm text-slate-600">
                                             <Calendar className="h-4 w-4 mr-2 text-slate-400" />
-                                            <span>Validade do Lote: <strong>{new Date(ad.data_vencimento).toLocaleDateString()}</strong></span>
+                                            <span>Validade do Lote: <strong>{ad.isUrgency ? 'Urgente' : new Date(ad.data_vencimento).toLocaleDateString()}</strong></span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="p-4 bg-slate-50 border-t border-slate-100">
                                     <Button
-                                        className={`w-full ${interestedAdIds.has(ad.id) ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                                        onClick={() => openModal(ad)}
+                                        className={`w-full ${interestedAdIds.has(ad.id) ? 'bg-green-100 text-green-700 hover:bg-green-200' : (ad.isUrgency ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700')}`}
+                                        onClick={() => ad.isUrgency ? setActiveUrgencyId(ad.original_id) : openModal(ad)}
                                     >
-                                        {interestedAdIds.has(ad.id) ? 'Status: Solicitado' : 'Tenho Interesse'}
+                                        {interestedAdIds.has(ad.id) ? 'Status: Solicitado' : (ad.isUrgency ? 'Atender Urgência' : 'Tenho Interesse')}
                                     </Button>
                                 </div>
                             </div>
@@ -397,15 +429,17 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                 onClick={async () => {
                                                     try {
                                                         setLoading(true)
-                                                        const { error } = await supabase.from('transacoes').insert([{
-                                                            anuncio_id: selectedAd.id,
-                                                            solicitante_id: user.id,
-                                                            fornecedor_id: selectedAd.usuario_id,
-                                                            status: 'SOLICITADO',
-                                                            tipo: selectedAd.tipo,
-                                                            quantidade: selectedAd.quantidade || 1, // Defaulting to full ad quantity or 1
-                                                            data_devolucao_prevista: selectedAd.prazo_devolucao // Capture return date
-                                                        }])
+                                                        const { data: transactionData, error } = await supabase.functions.invoke('create-transaction', {
+                                                            body: {
+                                                                anuncio_id: selectedAd.id,
+                                                                fornecedor_id: selectedAd.usuario_id,
+                                                                status: 'SOLICITADO',
+                                                                tipo: selectedAd.tipo,
+                                                                quantidade: selectedAd.quantidade || 1,
+                                                                data_devolucao_prevista: selectedAd.prazo_devolucao // Capture return date
+                                                                // unit_price: 0 // Optional: pass if regular ads have cost
+                                                            }
+                                                        })
                                                         if (error) throw error
 
                                                         // Update local state to reflect new interest immediately
@@ -484,6 +518,18 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Urgency Response Modal */}
+            {activeUrgencyId && (
+                <UrgencyResponseModal
+                    urgencyId={activeUrgencyId}
+                    onClose={() => {
+                        setActiveUrgencyId(null)
+                        fetchAds() // Refresh list after potential interaction
+                    }}
+                    currentUser={user}
+                />
             )}
         </div>
     )

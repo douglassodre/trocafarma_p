@@ -357,8 +357,8 @@ const NewAd = () => {
 
 
             // Calculate Ad Expiration
-            const isPremium = userProfile?.is_premium || false
-            const daysToAdd = isPremium ? 30 : 5
+            // Calculate Ad Expiration
+            const daysToAdd = 30
             const expirationDateObj = new Date()
             expirationDateObj.setDate(expirationDateObj.getDate() + daysToAdd)
 

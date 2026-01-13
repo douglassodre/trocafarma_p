@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Package, Clock, CheckCircle, XCircle, MessageCircle, ArrowLeft, X, Download } from 'lucide-react'
+import { Package, Clock, CheckCircle, XCircle, MessageCircle, ArrowLeft, X, Download, Coins } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { generateReceiptPDF } from '../utils/pdfGenerator'
@@ -12,6 +12,8 @@ const MyRequests = () => {
     const [requests, setRequests] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedRequest, setSelectedRequest] = useState(null)
+    const [isAccepting, setIsAccepting] = useState(false)
+    const [financialSummary, setFinancialSummary] = useState(null)
 
     useEffect(() => {
         if (user) {
@@ -141,12 +143,14 @@ const MyRequests = () => {
     const getStatusBadge = (status) => {
         const styles = {
             'SOLICITADO': 'bg-yellow-100 text-yellow-800',
+            'PENDENTE': 'bg-orange-100 text-orange-800',
             'APROVADO': 'bg-green-100 text-green-800',
             'RECUSADO': 'bg-red-100 text-red-800',
             'CONCLUIDO': 'bg-slate-100 text-slate-800',
-            'EM_TRANSITO': 'bg-blue-100 text-blue-800'
+            'EM_TRANSITO': 'bg-blue-100 text-blue-800',
+            'EM_ANDAMENTO': 'bg-blue-50 text-blue-700'
         }
-        return <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100'}`}>{status}</span>
+        return <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100'}`}>{status === 'PENDENTE' ? 'AGUARDANDO SEU ACEITE' : status}</span>
     }
 
     const openDetails = (req) => {
@@ -155,6 +159,46 @@ const MyRequests = () => {
 
     const closeDetails = () => {
         setSelectedRequest(null)
+        setIsAccepting(false)
+        setFinancialSummary(null)
+    }
+
+    const prepareAcceptance = (req) => {
+        const unitPrice = Number(req.anuncios?.preco_unitario || 0)
+        const quantity = Number(req.quantidade || 0)
+        const subtotal = unitPrice * quantity
+        const fee = subtotal * 0.10 // 10% Platform Fee
+        const total = subtotal + fee
+
+        setFinancialSummary({
+            unitPrice,
+            quantity,
+            subtotal,
+            fee,
+            total
+        })
+        setIsAccepting(true)
+    }
+
+    const confirmAcceptance = async () => {
+        if (!selectedRequest) return
+
+        try {
+            const { error } = await supabase
+                .from('transacoes')
+                .update({ status: 'EM_ANDAMENTO' })
+                .eq('id', selectedRequest.id)
+
+            if (error) throw error
+
+            alert('Oferta aceita! O fornecedor será notificado para iniciar o envio.')
+            fetchRequests()
+            closeDetails()
+
+        } catch (error) {
+            console.error('Error accepting offer:', error)
+            alert('Erro ao aceitar oferta. Tente novamente.')
+        }
     }
 
     if (loading) return (
@@ -303,6 +347,21 @@ const MyRequests = () => {
                                             <span className="text-slate-500 block">Tipo</span>
                                             <span className="font-medium">{selectedRequest.anuncios?.tipo}</span>
                                         </div>
+                                        <div>
+                                            <span className="text-slate-500 block text-xs uppercase tracking-wider">Valor de Referência (Item)</span>
+                                            <div className="flex items-center gap-1 font-medium text-slate-700">
+                                                <Coins className="h-3 w-3 text-slate-400" />
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedRequest.anuncios?.preco_unitario || 0)}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-500 block text-xs uppercase tracking-wider">Taxa Trocafarma (10%)</span>
+                                            <span className="font-bold text-orange-600 text-lg">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                                    ((selectedRequest.anuncios?.preco_unitario || 0) * (selectedRequest.quantidade || selectedRequest.anuncios?.quantidade || 0)) * 0.10
+                                                )}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -325,40 +384,100 @@ const MyRequests = () => {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
-                                {selectedRequest.status === 'EM_TRANSITO' && (
-                                    <Button
-                                        className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white"
-                                        onClick={() => handleConfirmReceipt(selectedRequest)}
-                                    >
-                                        <CheckCircle className="h-4 w-4" />
-                                        Confirmar Recebimento
-                                    </Button>
-                                )}
-                                {(selectedRequest.status === 'EM_ANDAMENTO' || selectedRequest.status === 'DEVOLUCAO_PARCIAL' || selectedRequest.status === 'CONCLUIDO') && (
-                                    <Link to={`/devolver/${selectedRequest.id}`} className="flex-1">
-                                        <Button className="w-full gap-2 bg-orange-600 hover:bg-orange-700 text-white">
-                                            <Package className="h-4 w-4" />
-                                            Registrar Devolução
+                            {/* Financial Review Section or Actions */}
+                            {isAccepting && financialSummary ? (
+                                <div className="bg-orange-50 p-5 rounded-xl border border-orange-200 animate-in fade-in slide-in-from-bottom-4">
+                                    <h3 className="text-lg font-bold text-orange-800 mb-4 flex items-center gap-2">
+                                        <Coins className="h-5 w-5" />
+                                        Revisão Financeira
+                                    </h3>
+
+                                    <div className="space-y-2 mb-6 text-sm">
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Preço Unitário:</span>
+                                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.unitPrice)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Quantidade:</span>
+                                            <span>{financialSummary.quantity}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-500 border-t border-orange-200 pt-2 mt-2">
+                                            <span>Valor de Referência (Itens):</span>
+                                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.subtotal)}</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold text-orange-700 text-lg border-t-2 border-orange-200 pt-2 mt-2">
+                                            <span>Taxa Trocafarma (10%):</span>
+                                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.fee)}</span>
+                                        </div>
+                                        <p className="text-xs text-orange-600 mt-2 text-right">
+                                            * O pagamento referente à taxa de serviço da plataforma.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <Button
+                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12"
+                                            onClick={confirmAcceptance}
+                                        >
+                                            Confirmar e Aceitar
                                         </Button>
-                                    </Link>
-                                )}
-                                <Button
-                                    className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700"
-                                    onClick={() => generateReceiptPDF(selectedRequest.anuncios, user)} // Uses the ad data for now as per logic
-                                >
-                                    <Download className="h-4 w-4" />
-                                    Baixar Comprovante
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 gap-2"
-                                    onClick={() => handleWhatsAppClick(selectedRequest.anuncios?.perfis_usuarios?.whatsapp, selectedRequest.anuncios?.descricao_customizada)}
-                                >
-                                    <MessageCircle className="h-4 w-4" />
-                                    Contatar Fornecedor
-                                </Button>
-                            </div>
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1 border-orange-300 text-orange-700 hover:bg-orange-100 h-12"
+                                            onClick={() => setIsAccepting(false)}
+                                        >
+                                            Voltar
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
+                                    {selectedRequest.status === 'PENDENTE' && (
+                                        <Button
+                                            className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all animate-pulse duration-1000"
+                                            onClick={() => prepareAcceptance(selectedRequest)}
+                                        >
+                                            <CheckCircle className="h-4 w-4" />
+                                            Aceitar Oferta
+                                        </Button>
+                                    )}
+
+                                    {selectedRequest.status === 'EM_TRANSITO' && (
+                                        <Button
+                                            className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                            onClick={() => handleConfirmReceipt(selectedRequest)}
+                                        >
+                                            <CheckCircle className="h-4 w-4" />
+                                            Confirmar Recebimento
+                                        </Button>
+                                    )}
+                                    {(selectedRequest.status === 'EM_ANDAMENTO' || selectedRequest.status === 'DEVOLUCAO_PARCIAL' || selectedRequest.status === 'CONCLUIDO') && (
+                                        <Link to={`/devolver/${selectedRequest.id}`} className="flex-1">
+                                            <Button className="w-full gap-2 bg-orange-600 hover:bg-orange-700 text-white">
+                                                <Package className="h-4 w-4" />
+                                                Registrar Devolução
+                                            </Button>
+                                        </Link>
+                                    )}
+                                    {selectedRequest.status !== 'PENDENTE' && selectedRequest.status !== 'SOLICITADO' && (
+                                        <Button
+                                            className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700"
+                                            onClick={() => generateReceiptPDF(selectedRequest.anuncios, user)} // Uses the ad data for now as per logic
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            Baixar Comprovante
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 gap-2"
+                                        onClick={() => handleWhatsAppClick(selectedRequest.anuncios?.perfis_usuarios?.whatsapp, selectedRequest.anuncios?.descricao_customizada)}
+                                    >
+                                        <MessageCircle className="h-4 w-4" />
+                                        Contatar Fornecedor
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
