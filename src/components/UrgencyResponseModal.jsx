@@ -153,10 +153,23 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
             if (adError) throw adError;
 
             // 2. Create Transaction via Backend (Stripe Billing)
+            // 2. Create Transaction via Backend (Stripe Billing)
             const unitPriceInCents = parseInt(formData.unitPrice.replace(/\D/g, ''), 10) || 0;
 
-            const { data: transData, error: transError } = await supabase.functions.invoke('create-transaction', {
-                body: {
+            console.log("Debugging: Starting raw fetch request...");
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) throw new Error("No access token found");
+
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-transaction`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
                     anuncio_id: newAd.id,
                     fornecedor_id: currentUser.id, // Current user is answering
                     status: 'PENDENTE', // 'PENDENTE' until accepted? Or 'SOLICITADO'? Original was 'PENDENTE'
@@ -164,10 +177,26 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                     quantidade: formData.quantity,
                     data_devolucao_prevista: formData.type === 'EMPRESTIMO' ? formData.returnDate : null,
                     unit_price: unitPriceInCents
-                }
+                })
             });
 
-            if (transError) throw new Error(transError.message || 'Error executing create-transaction');
+            const responseText = await response.text();
+            console.log("Raw Response:", responseText);
+
+            let transData;
+            try {
+                transData = JSON.parse(responseText);
+            } catch (e) {
+                throw new Error(`Failed to parse response: ${responseText}`);
+            }
+
+            if (!response.ok) {
+                console.error("Function Error Details:", transData);
+                throw new Error(
+                    `Erro na função (${response.status}): ${transData.error || 'Sem mensagem'} ` +
+                    `${transData.details ? JSON.stringify(transData.details) : ''} `
+                );
+            }
 
             const trans = transData?.transaction;
 

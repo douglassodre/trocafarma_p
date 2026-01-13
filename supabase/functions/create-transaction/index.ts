@@ -32,24 +32,31 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
+        const authHeader = req.headers.get('Authorization');
+        console.log("Received Auth Header:", authHeader ? (authHeader.substring(0, 20) + "...") : "null");
+
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
         if (authError || !user) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+            console.error("Auth Error:", authError);
+            return new Response(JSON.stringify({ error: 'Unauthorized', details: authError }), { status: 401, headers: corsHeaders });
         }
 
         const body = await req.json();
         const { anuncio_id, fornecedor_id, quantidade, tipo, data_devolucao_prevista, unit_price } = body;
 
         // 1. Get User Profile
-        const { data: profile, error: profileError } = await supabaseClient
+        // Use admin client to bypass RLS
+        console.log("Fetching profile for user:", user.id);
+        const { data: profile, error: profileError } = await supabaseAdmin
             .from('perfis_usuarios')
-            .select('stripe_customer_id, email, nome_completo')
+            .select('stripe_customer_id, email, nome')
             .eq('id', user.id)
             .single();
 
         if (profileError || !profile) {
-            throw new Error('Profile not found');
+            console.error("Profile Fetch Error:", profileError);
+            throw new Error(`Profile not found for user ${user.id}. DB Error: ${profileError?.message}`);
         }
 
         let customerId = profile.stripe_customer_id;
@@ -68,7 +75,7 @@ serve(async (req) => {
                 console.log("Creating new Stripe Customer for user", user.id);
                 const customer = await stripe.customers.create({
                     email: email,
-                    name: profile.nome_completo,
+                    name: profile.nome,
                     metadata: { supabase_id: user.id }
                 });
                 customerId = customer.id;
