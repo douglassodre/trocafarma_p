@@ -14,7 +14,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
         type: 'DOACAO', // DOACAO, EMPRESTIMO, PERMUTA
         unitPrice: '',
         lote: '',
-        lote: '',
+
         validade: '',
         returnDate: '',
         exchangeItems: '',
@@ -155,7 +155,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
             // 2. Create Transaction via Backend (Stripe Billing)
             const unitPriceInCents = parseInt(formData.unitPrice.replace(/\D/g, ''), 10) || 0;
 
-            const { data: { transaction: trans }, error: transError } = await supabase.functions.invoke('create-transaction', {
+            const { data: transData, error: transError } = await supabase.functions.invoke('create-transaction', {
                 body: {
                     anuncio_id: newAd.id,
                     fornecedor_id: currentUser.id, // Current user is answering
@@ -168,6 +168,8 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
             });
 
             if (transError) throw new Error(transError.message || 'Error executing create-transaction');
+
+            const trans = transData?.transaction;
 
             // 3. Update Urgency Status
             const { error: updateError } = await supabase
