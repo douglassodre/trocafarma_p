@@ -19,6 +19,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
 import AdDetails from './pages/AdDetails'
 import LandingPage from './pages/LandingPage'
+import TermsOfUse from './pages/TermsOfUse'
 import Financial from './pages/Financial'
 import { HelmetProvider } from 'react-helmet-async'
 
@@ -100,6 +101,7 @@ function App() {
             } />
 
             <Route path="/" element={<LandingPage />} />
+            <Route path="/termos-de-uso" element={<TermsOfUse />} />
 
             <Route path="/financeiro" element={
               <DashboardLayout>
