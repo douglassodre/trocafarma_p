@@ -254,7 +254,7 @@ const LandingPage = () => {
                     <div>
                         <h4 className="text-white font-bold mb-4">Empresa</h4>
                         <ul className="space-y-2 text-sm">
-                            <li><Link to="/about" className="hover:text-green-400">Sobre Nós</Link></li>
+                            <li><Link to="/sobre-nos" className="hover:text-green-400">Sobre Nós</Link></li>
                             <li><a href="https://www.linkedin.com/company/trocafarma" target="_blank" rel="noopener noreferrer" className="hover:text-green-400">LinkedIn</a></li>
                             <li><Link to="/blog" className="hover:text-green-400">Blog</Link></li>
                         </ul>

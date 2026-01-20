@@ -21,6 +21,8 @@ import AdDetails from './pages/AdDetails'
 import LandingPage from './pages/LandingPage'
 import TermsOfUse from './pages/TermsOfUse'
 import Financial from './pages/Financial'
+import AboutUs from './pages/AboutUs'
+import Contact from './pages/Contact'
 import { HelmetProvider } from 'react-helmet-async'
 
 function App() {
@@ -102,6 +104,8 @@ function App() {
 
             <Route path="/" element={<LandingPage />} />
             <Route path="/termos-de-uso" element={<TermsOfUse />} />
+            <Route path="/sobre-nos" element={<AboutUs />} />
+            <Route path="/contact" element={<Contact />} />
 
             <Route path="/financeiro" element={
               <DashboardLayout>
