@@ -72,6 +72,7 @@ const Explore = () => {
                 .from('solicitacoes_urgentes')
                 .select('*')
                 .eq('status', 'ATIVA')
+                .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
             if (urgencyError) throw urgencyError
 

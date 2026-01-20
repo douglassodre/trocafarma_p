@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 import logo from '../assets/logo.png'
+import { ArrowLeft } from 'lucide-react'
 
 const SignIn = () => {
     const navigate = useNavigate()
@@ -54,7 +55,11 @@ const SignIn = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 relative">
+            <Link to="/" className="absolute top-4 left-4 flex items-center text-indigo-600 hover:text-indigo-500 font-medium">
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Voltar para o site
+            </Link>
             <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl">
                 <div>
                     <div className="flex justify-center mb-4">
