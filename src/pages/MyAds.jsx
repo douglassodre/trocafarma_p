@@ -11,7 +11,9 @@ import {
 const MyAds = () => {
     const { user } = useAuth()
     const navigate = useNavigate()
+    const [activeTab, setActiveTab] = useState('ofertas') // 'ofertas', 'urgencias'
     const [ads, setAds] = useState([])
+    const [urgencies, setUrgencies] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedAd, setSelectedAd] = useState(null)
     const [returnHistory, setReturnHistory] = useState({}) // Map transactionId -> list of returns
@@ -81,9 +83,28 @@ const MyAds = () => {
         }
     }
 
+    const fetchUrgencies = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('solicitacoes_urgentes')
+                .select('*')
+                .eq('usuario_id', user.id)
+                .order('created_at', { ascending: false })
+            if (error) throw error
+            setUrgencies(data || [])
+        } catch (error) {
+            console.error('Error fetching urgencies:', error)
+        }
+    }
+
     useEffect(() => {
         if (user) {
-            fetchAds()
+            const loadData = async () => {
+                setLoading(true)
+                await Promise.all([fetchAds(), fetchUrgencies()])
+                setLoading(false)
+            }
+            loadData()
         }
     }, [user])
 
@@ -98,6 +119,25 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
 
         const url = `https://wa.me/?text=${encodeURIComponent(text)}`
         window.open(url, '_blank')
+    }
+
+    const handleCancelUrgency = async (id) => {
+        if (!confirm('Deseja finalizar esta urgência? Ela não será mais exibida para outras instituições.')) return
+
+        try {
+            const { error } = await supabase
+                .from('solicitacoes_urgentes')
+                .update({ status: 'ATENDIDA' })
+                .eq('id', id)
+
+            if (error) throw error
+
+            setUrgencies(urgencies.map(u => u.id === id ? { ...u, status: 'ATENDIDA' } : u))
+            alert('Busca finalizada! Status alterado para: ATENDIDA')
+        } catch (error) {
+            console.error('Error finishing urgency:', error)
+            alert(`Erro ao finalizar urgência. Detalhes: ${error.message || error.details || JSON.stringify(error)}`)
+        }
     }
 
     const handleInactivate = async (id) => {
@@ -263,7 +303,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
             <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                     <div className="flex items-center space-x-4 w-full sm:w-auto">
                         <button
                             onClick={() => navigate('/')}
@@ -273,8 +313,8 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                             <ArrowLeft className="h-6 w-6" />
                         </button>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Meus Anúncios</h1>
-                            <p className="text-sm text-gray-500">Gerencie suas ofertas e solicitações</p>
+                            <h1 className="text-3xl font-bold text-gray-900">Meus Anúncios e Urgências</h1>
+                            <p className="text-sm text-gray-500">Gerencie suas ofertas e solicitações de urgência</p>
                         </div>
                     </div>
                     <button
@@ -286,134 +326,220 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                     </button>
                 </div>
 
-                {ads.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
-                        <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Package className="h-10 w-10 text-indigo-500" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">Você ainda não tem anúncios</h3>
-                        <p className="text-gray-500 max-w-md mx-auto mb-8">Comece a compartilhar medicamentos e itens da sua farmácia com outras instituições parceiras.</p>
-                        <button
-                            onClick={() => navigate('/novo-anuncio')}
-                            className="inline-flex items-center space-x-2 text-indigo-600 font-semibold hover:text-indigo-700 hover:underline"
-                        >
-                            <span>Criar meu primeiro anúncio</span>
-                            <ArrowLeft className="h-4 w-4 rotate-180" />
-                        </button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {ads.map((ad) => (
-                            <div key={ad.id}
-                                className={`group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${ad.status !== 'ATIVO' && ad.status !== 'RESERVADO' && ad.status !== 'RESERVADO_MATCH' ? 'opacity-75 grayscale-[0.5]' : ''}`}
-                            >
-                                {/* Interest Badge */}
-                                {getInterestCount(ad) > 0 && (
-                                    <div
-                                        className="absolute top-4 right-4 z-10 cursor-pointer"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            setSelectedAd(ad)
-                                            loadReturnsForAd(ad)
-                                        }}
-                                    >
-                                        <div className="relative">
-                                            <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
-                                                <Users className="h-3 w-3" />
-                                                <span>{getInterestCount(ad)} interessado(s)</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                <div className="flex border-b border-gray-200 mb-8">
+                    <button
+                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'ofertas' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        onClick={() => setActiveTab('ofertas')}
+                    >
+                        Minhas Ofertas (Doações/Empréstimos/Vendas)
+                    </button>
+                    <button
+                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'urgencias' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        onClick={() => setActiveTab('urgencias')}
+                    >
+                        Minhas Urgências (Rupturas)
+                    </button>
+                </div>
 
-                                <div className="p-6 flex-1 cursor-pointer" onClick={() => {
-                                    setSelectedAd(ad)
-                                    loadReturnsForAd(ad)
-                                }}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1
-                                            ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                                ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
-                                                    'bg-orange-100 text-orange-700'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full 
-                                                 ${ad.tipo === 'DOACAO' ? 'bg-blue-500' :
-                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-purple-500' :
-                                                        'bg-orange-500'}`}
-                                            />
-                                            {ad.tipo}
-                                        </span>
-                                        <span className={`flex items-center space-x-1 text-xs font-bold border rounded-md px-2 py-1
-                                            ${(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? 'border-green-200 text-green-700 bg-green-50' :
-                                                ad.status === 'RESERVADO' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
-                                                    'border-gray-200 text-gray-500 bg-gray-50'}`}>
-                                            {(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                                            <span>{ad.status === 'RESERVADO_MATCH' ? 'ATIVO (MATCH)' : ad.status}</span>
-                                        </span>
-                                    </div>
-
-                                    <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2" title={ad.descricao_customizada}>
-                                        {ad.descricao_customizada || 'Sem descrição'}
-                                    </h3>
-
-                                    <div className="flex items-center text-sm text-gray-500 mb-6 bg-gray-50 p-2 rounded-lg">
-                                        <Package className="h-4 w-4 mr-2 text-gray-400" />
-                                        <span>Cod: {ad.item_codigo}</span>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-sm">
-                                            <div className="flex items-center text-gray-600">
-                                                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                                                <span>Expira em:</span>
-                                            </div>
-                                            <div className={`font-medium flex items-center
-                                                ${isExpiringSoon(ad.data_expiracao) ? 'text-orange-600' :
-                                                    isExpired(ad.data_expiracao) ? 'text-red-600' : 'text-gray-900'}`
-                                            }>
-                                                {new Date(ad.data_expiracao).toLocaleDateString()}
-                                                {isExpiringSoon(ad.data_expiracao) && <AlertTriangle className="h-4 w-4 ml-1" />}
-                                                {isExpired(ad.data_expiracao) && <Clock className="h-4 w-4 ml-1" />}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Actions Footer */}
-                                <div className="bg-gray-50 p-4 border-t border-gray-100 flex items-center space-x-3">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleEdit(ad)
-                                        }}
-                                        disabled={ad.status !== 'ATIVO'}
-                                        className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none"
-                                    >
-                                        <Edit2 className="h-4 w-4" />
-                                        <span>Editar</span>
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleWhatsAppShare(ad, e)}
-                                        disabled={ad.status !== 'ATIVO'}
-                                        title="Compartilhar"
-                                        className="flex items-center justify-center p-2 rounded-lg text-green-600 hover:bg-green-50 border border-transparent hover:border-green-100 transition disabled:opacity-50 disabled:hover:bg-transparent"
-                                    >
-                                        <Share2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleInactivate(ad.id)
-                                        }}
-                                        disabled={ad.status !== 'ATIVO'}
-                                        className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-100 border border-transparent transition disabled:opacity-50 disabled:hover:bg-transparent"
-                                    >
-                                        {ad.status === 'ATIVO' ? <EyeOff className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                                        <span>{ad.status === 'ATIVO' ? 'Finalizar' : 'Finalizado'}</span>
-                                    </button>
-                                </div>
+                {activeTab === 'ofertas' ? (
+                    ads.length === 0 ? (
+                        <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
+                            <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Package className="h-10 w-10 text-indigo-500" />
                             </div>
-                        ))}
-                    </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Você ainda não tem anúncios</h3>
+                            <p className="text-gray-500 max-w-md mx-auto mb-8">Comece a compartilhar medicamentos e itens da sua farmácia com outras instituições parceiras.</p>
+                            <button
+                                onClick={() => navigate('/novo-anuncio')}
+                                className="inline-flex items-center space-x-2 text-indigo-600 font-semibold hover:text-indigo-700 hover:underline"
+                            >
+                                <span>Criar meu primeiro anúncio</span>
+                                <ArrowLeft className="h-4 w-4 rotate-180" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {ads.map((ad) => (
+                                <div key={ad.id}
+                                    className={`group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${ad.status !== 'ATIVO' && ad.status !== 'RESERVADO' && ad.status !== 'RESERVADO_MATCH' ? 'opacity-75 grayscale-[0.5]' : ''}`}
+                                >
+                                    {/* Interest Badge */}
+                                    {getInterestCount(ad) > 0 && (
+                                        <div
+                                            className="absolute top-4 right-4 z-10 cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedAd(ad)
+                                                loadReturnsForAd(ad)
+                                            }}
+                                        >
+                                            <div className="relative">
+                                                <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
+                                                    <Users className="h-3 w-3" />
+                                                    <span>{getInterestCount(ad)} interessado(s)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="p-6 flex-1 cursor-pointer" onClick={() => {
+                                        setSelectedAd(ad)
+                                        loadReturnsForAd(ad)
+                                    }}>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <span className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1
+                                            ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
+                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                                        'bg-orange-100 text-orange-700'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full 
+                                                 ${ad.tipo === 'DOACAO' ? 'bg-blue-500' :
+                                                        ad.tipo === 'EMPRESTIMO' ? 'bg-purple-500' :
+                                                            'bg-orange-500'}`}
+                                                />
+                                                {ad.tipo}
+                                            </span>
+                                            <span className={`flex items-center space-x-1 text-xs font-bold border rounded-md px-2 py-1
+                                            ${(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? 'border-green-200 text-green-700 bg-green-50' :
+                                                    ad.status === 'RESERVADO' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
+                                                        'border-gray-200 text-gray-500 bg-gray-50'}`}>
+                                                {(ad.status === 'ATIVO' || ad.status === 'RESERVADO_MATCH') ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                                <span>{ad.status === 'RESERVADO_MATCH' ? 'ATIVO (MATCH)' : ad.status}</span>
+                                            </span>
+                                        </div>
+
+                                        <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2" title={ad.descricao_customizada}>
+                                            {ad.descricao_customizada || 'Sem descrição'}
+                                        </h3>
+
+                                        <div className="flex items-center text-sm text-gray-500 mb-6 bg-gray-50 p-2 rounded-lg">
+                                            <Package className="h-4 w-4 mr-2 text-gray-400" />
+                                            <span>Cod: {ad.item_codigo}</span>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center text-gray-600">
+                                                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                                                    <span>Expira em:</span>
+                                                </div>
+                                                <div className={`font-medium flex items-center
+                                                ${isExpiringSoon(ad.data_expiracao) ? 'text-orange-600' :
+                                                        isExpired(ad.data_expiracao) ? 'text-red-600' : 'text-gray-900'}`
+                                                }>
+                                                    {new Date(ad.data_expiracao).toLocaleDateString()}
+                                                    {isExpiringSoon(ad.data_expiracao) && <AlertTriangle className="h-4 w-4 ml-1" />}
+                                                    {isExpired(ad.data_expiracao) && <Clock className="h-4 w-4 ml-1" />}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions Footer */}
+                                    <div className="bg-gray-50 p-4 border-t border-gray-100 flex items-center space-x-3">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleEdit(ad)
+                                            }}
+                                            disabled={ad.status !== 'ATIVO'}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                                        >
+                                            <Edit2 className="h-4 w-4" />
+                                            <span>Editar</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleWhatsAppShare(ad, e)}
+                                            disabled={ad.status !== 'ATIVO'}
+                                            title="Compartilhar"
+                                            className="flex items-center justify-center p-2 rounded-lg text-green-600 hover:bg-green-50 border border-transparent hover:border-green-100 transition disabled:opacity-50 disabled:hover:bg-transparent"
+                                        >
+                                            <Share2 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleInactivate(ad.id)
+                                            }}
+                                            disabled={ad.status !== 'ATIVO'}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-100 border border-transparent transition disabled:opacity-50 disabled:hover:bg-transparent"
+                                        >
+                                            {ad.status === 'ATIVO' ? <EyeOff className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                                            <span>{ad.status === 'ATIVO' ? 'Finalizar' : 'Finalizado'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                ) : (
+                    urgencies.length === 0 ? (
+                        <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
+                            <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <AlertTriangle className="h-10 w-10 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Você não possui urgências ativas</h3>
+                            <p className="text-gray-500 max-w-md mx-auto mb-8">Nenhuma solicitação de ruptura de estoque encontrada em seu nome.</p>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="inline-flex items-center space-x-2 text-red-600 font-semibold hover:text-red-700 hover:underline"
+                            >
+                                <span>Voltar ao painel para solicitar com urgência</span>
+                                <ArrowLeft className="h-4 w-4 rotate-180" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {urgencies.map((urgency) => (
+                                <div key={urgency.id}
+                                    className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${urgency.status !== 'ATIVA' ? 'opacity-75 grayscale-[0.5]' : 'border-t-4 border-t-red-500'}`}
+                                >
+                                    <div className="p-6 flex-1">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1 bg-red-100 text-red-700">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                                URGÊNCIA ({urgency.nivel_urgencia_label || 'Alta'})
+                                            </span>
+                                            <span className={`flex items-center space-x-1 text-xs font-bold border rounded-md px-2 py-1 ${(urgency.status === 'ATIVA') ? 'border-green-200 text-green-700 bg-green-50' : 'border-gray-200 text-gray-500 bg-gray-50'}`}>
+                                                {(urgency.status === 'ATIVA') ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                                <span>{urgency.status}</span>
+                                            </span>
+                                        </div>
+                                        <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2" title={urgency.item_nome}>
+                                            {urgency.item_nome || 'Sem descrição'}
+                                        </h3>
+                                        <div className="flex items-center text-sm text-gray-500 mb-6 bg-gray-50 p-2 rounded-lg">
+                                            <Package className="h-4 w-4 mr-2 text-gray-400" />
+                                            <span>Em falta ({urgency.quantidade} unidades)</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center text-gray-600">
+                                                    <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                                                    <span>Validade do Ad:</span>
+                                                </div>
+                                                <div className="font-medium text-gray-900 flex items-center">
+                                                    {new Date(urgency.data_expiracao).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-50 p-4 border-t border-gray-100 flex items-center space-x-3">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleCancelUrgency(urgency.id)
+                                            }}
+                                            disabled={urgency.status !== 'ATIVA'}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-100 border border-transparent transition disabled:opacity-50 disabled:hover:bg-transparent"
+                                        >
+                                            {urgency.status === 'ATIVA' ? <EyeOff className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                                            <span>{urgency.status === 'ATIVA' ? 'Finalizar Busca' : 'Finalizada'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
                 )}
             </div>
 
