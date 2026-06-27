@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 
-const API_KEY = '5ae973d7a997af13f0aaf2bf60e65803';
+const API_KEY = '83ff6443ed4c28a1922c37923153e8e6';
 // CPF API (Legacy/Paid)
 const CPF_BASE_URL = `https://api.cpfcnpj.com.br/${API_KEY}`;
 // CNPJ API (BrasilAPI - Open)
