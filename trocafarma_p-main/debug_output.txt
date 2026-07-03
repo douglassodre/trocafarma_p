@@ -1,0 +1,11 @@
+=== DEBUG REPORT ===
+Total Ads: 3
+AD: [f7791706] Status=ATIVO User=4928bb2f-146c-4116-a3e4-758491ee2ac3 Type=EMPRESTIMO
+AD: [647f1750] Status=ATIVO User=4928bb2f-146c-4116-a3e4-758491ee2ac3 Type=EMPRESTIMO
+AD: [628b1cb4] Status=ATIVO User=4928bb2f-146c-4116-a3e4-758491ee2ac3 Type=EMPRESTIMO
+
+--- JOIN TEST ---
+Join Success. Rows: 3
+AD: [f7791706] Inst: {"nome_fantasia":"ESCOLA NOSSA GENTE"}
+AD: [647f1750] Inst: {"nome_fantasia":"ESCOLA NOSSA GENTE"}
+AD: [628b1cb4] Inst: {"nome_fantasia":"ESCOLA NOSSA GENTE"}
