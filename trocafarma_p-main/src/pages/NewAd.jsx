@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
-import { notifyStatusBot } from '../utils/statusBot'
+
 import {
     ArrowLeft, MapPin, Search, Calendar,
     Package, FileText, Camera, Save, X, Type,
@@ -344,13 +344,17 @@ const NewAd = () => {
 
                     finalPhotoUrl = publicUrlData.publicUrl
 
-                    // Notifica o status bot de forma fire-and-forget.
-                    // O utilitário nunca lança exceção, então o fluxo principal
-                    // nunca é interrompido por uma falha nesse envio.
-                    notifyStatusBot(
-                        filePath,
-                        formData.description || 'Novo anúncio TrocaFarma'
-                    )
+                    // Notifica a Edge Function de forma fire-and-forget.
+                    // O .catch() garante que uma falha aqui nunca trava a criação do anúncio.
+                    supabase.functions.invoke('notify-status-bot', {
+                        body: {
+                            filePath,
+                            caption: formData.description || 'Novo anúncio TrocaFarma',
+                        },
+                    }).catch((err) => {
+                        // fire-and-forget: erro aqui nunca deve travar a criacao do anuncio
+                        console.error('Falha ao notificar status bot:', err)
+                    })
                 } catch (uploadErr) {
                     console.error("Erro no upload:", uploadErr)
                     setFeedback("Erro ao enviar imagem. Tente novamente.")
