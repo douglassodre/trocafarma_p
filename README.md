@@ -1,4 +1,4 @@
-# Trocafarma 💊
+# Trocafarma. 💊
 
 Bem-vindo ao **Trocafarma**, uma plataforma dedicada à doação e troca de medicamentos e itens farmacêuticos, facilitando o acesso e evitando o desperdício.
 
