@@ -5,11 +5,13 @@ import { supabase } from '../lib/supabase'
 
 import logo from '../assets/logo.png'
 import { ArrowLeft } from 'lucide-react'
+import { isAdminHost, isSuperAdmin } from '../utils/admin'
 
 const SignIn = () => {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const { signIn } = useAuth()
+    const adminHost = isAdminHost()
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -35,9 +37,13 @@ const SignIn = () => {
                     .single()
 
                 const urgencyId = searchParams.get('urgency_id')
-                const action = searchParams.get('action')
 
-                if (profile?.instituicoes?.status === 'PENDENTE') {
+                if (isSuperAdmin(profile)) {
+                    navigate('/admin')
+                } else if (adminHost) {
+                    await supabase.auth.signOut()
+                    setError('Este acesso e exclusivo para administradores gerais da Trocafarma.')
+                } else if (profile?.instituicoes?.status === 'PENDENTE') {
                     navigate('/pending-approval')
                 } else {
                     if (urgencyId) {
@@ -61,24 +67,28 @@ const SignIn = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 relative">
-            <Link to="/" className="absolute top-4 left-4 flex items-center text-indigo-600 hover:text-indigo-500 font-medium">
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Voltar para o site
-            </Link>
+            {!adminHost && (
+                <Link to="/" className="absolute top-4 left-4 flex items-center text-indigo-600 hover:text-indigo-500 font-medium">
+                    <ArrowLeft className="h-5 w-5 mr-2" />
+                    Voltar para o site
+                </Link>
+            )}
             <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl">
                 <div>
                     <div className="flex justify-center mb-4">
                         <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Entrar na Trocafarma
+                        {adminHost ? 'Entrar no Admin' : 'Entrar na Trocafarma'}
                     </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
-                        Ou{' '}
-                        <Link to={`/signup?${searchParams.toString()}`} className="font-medium text-indigo-600 hover:text-indigo-500">
-                            crie uma nova conta
-                        </Link>
-                    </p>
+                    {!adminHost && (
+                        <p className="mt-2 text-center text-sm text-gray-600">
+                            Ou{' '}
+                            <Link to={`/signup?${searchParams.toString()}`} className="font-medium text-indigo-600 hover:text-indigo-500">
+                                crie uma nova conta
+                            </Link>
+                        </p>
+                    )}
                 </div>
 
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded text-sm">{error}</div>}

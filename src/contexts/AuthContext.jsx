@@ -101,8 +101,10 @@ export const AuthProvider = ({ children }) => {
             redirectTo: 'https://trocafarma.com/update-password',
         }),
         updatePassword: (password) => supabase.auth.updateUser({ password }),
+        refreshProfile: fetchProfile,
         user,
         userProfile,
+        loading,
     }
 
     return (

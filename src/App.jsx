@@ -23,14 +23,19 @@ import TermsOfUse from './pages/TermsOfUse'
 import Financial from './pages/Financial'
 import AboutUs from './pages/AboutUs'
 import Contact from './pages/Contact'
+import AdminDashboard from './pages/AdminDashboard'
 import { HelmetProvider } from 'react-helmet-async'
+import { isAdminHost } from './utils/admin'
 
 function App() {
+  const adminHost = isAdminHost()
+
   return (
     <HelmetProvider>
       <AuthProvider>
         <Router>
           <Routes>
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -102,7 +107,7 @@ function App() {
               </DashboardLayout>
             } />
 
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={adminHost ? <Navigate to="/admin" replace /> : <LandingPage />} />
             <Route path="/termos-de-uso" element={<TermsOfUse />} />
             <Route path="/sobre-nos" element={<AboutUs />} />
             <Route path="/contact" element={<Contact />} />
@@ -112,7 +117,7 @@ function App() {
                 <Financial />
               </DashboardLayout>
             } />
-            <Route path="*" element={<Navigate to="/signin" />} />
+            <Route path="*" element={<Navigate to={adminHost ? '/admin' : '/signin'} />} />
           </Routes>
         </Router>
       </AuthProvider>

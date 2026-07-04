@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import DeliveryConfirmationModal from '../components/DeliveryConfirmationModal'
+import { isSuperAdmin } from '../utils/admin'
 
 const DashboardLayout = ({ children }) => {
     const { user, userProfile, loading } = useAuth()
@@ -17,8 +18,12 @@ const DashboardLayout = ({ children }) => {
             }
 
             if (userProfile) {
-                // If user is NOT active, and NOT already on pending page
-                if (userProfile.is_active === false && location.pathname !== '/pending-approval') {
+                if (isSuperAdmin(userProfile)) return
+
+                const institutionPending = userProfile.instituicoes?.status === 'PENDENTE'
+                const userInactive = userProfile.is_active === false
+
+                if ((institutionPending || userInactive) && location.pathname !== '/pending-approval') {
                     navigate('/pending-approval')
                 }
             }
