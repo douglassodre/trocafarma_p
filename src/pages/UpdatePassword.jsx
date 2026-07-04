@@ -24,7 +24,7 @@ const UpdatePassword = () => {
             setLoading(true)
             const { error } = await updatePassword(password)
             if (error) throw error
-            navigate('/')
+            navigate('/signin?password_updated=1')
         } catch (err) {
             console.error(err)
             setError('Falha ao atualizar a senha.')

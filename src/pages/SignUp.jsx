@@ -132,7 +132,7 @@ const SignUp = () => {
 
             // 3. Sign Up User. A database trigger creates the profile from this metadata.
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
+                email: formData.email.trim().toLowerCase(),
                 password: formData.password,
                 options: {
                     data: {

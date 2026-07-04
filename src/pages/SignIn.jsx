@@ -15,6 +15,7 @@ const SignIn = () => {
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const passwordUpdated = searchParams.get('password_updated') === '1'
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -22,7 +23,7 @@ const SignIn = () => {
         setError(null)
 
         try {
-            const { data, error } = await signIn({ email, password })
+            const { data, error } = await signIn({ email: email.trim().toLowerCase(), password })
             if (error) throw error
 
             if (data.user) {
@@ -48,7 +49,11 @@ const SignIn = () => {
             }
         } catch (err) {
             console.error(err)
-            setError('Falha ao fazer login. Verifique suas credenciais.')
+            if (err.message === 'Email not confirmed') {
+                setError('Confirme seu cadastro pelo link enviado ao seu email antes de entrar.')
+            } else {
+                setError('Falha ao fazer login. Verifique seu email e senha.')
+            }
         } finally {
             setLoading(false)
         }
@@ -77,6 +82,11 @@ const SignIn = () => {
                 </div>
 
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded text-sm">{error}</div>}
+                {passwordUpdated && !error && (
+                    <div className="bg-green-50 text-green-700 p-3 rounded text-sm">
+                        Senha atualizada com sucesso. Entre usando sua nova senha.
+                    </div>
+                )}
 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="rounded-md shadow-sm -space-y-px">

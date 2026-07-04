@@ -18,7 +18,7 @@ const ForgotPassword = () => {
             setMessage('')
             setError('')
             setLoading(true)
-            const { error } = await resetPassword(email)
+            const { error } = await resetPassword(email.trim().toLowerCase())
             if (error) throw error
             setMessage('Verifique sua caixa de entrada para seguir com a redefinição de senha.')
         } catch (err) {

@@ -92,10 +92,13 @@ export const AuthProvider = ({ children }) => {
 
     const value = {
         signUp: (data) => supabase.auth.signUp(data),
-        signIn: (data) => supabase.auth.signInWithPassword(data),
+        signIn: (data) => supabase.auth.signInWithPassword({
+            ...data,
+            email: data.email.trim().toLowerCase(),
+        }),
         signOut: () => supabase.auth.signOut(),
         resetPassword: (email) => supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'https://trocafarma.vercel.app/update-password',
+            redirectTo: 'https://trocafarma.com/update-password',
         }),
         updatePassword: (password) => supabase.auth.updateUser({ password }),
         user,
