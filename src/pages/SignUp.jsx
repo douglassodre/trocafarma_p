@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
 
@@ -7,7 +7,6 @@ import logo from '../assets/logo.png'
 
 const SignUp = () => {
     const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -19,6 +18,7 @@ const SignUp = () => {
     const [institutionName, setInstitutionName] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [signupComplete, setSignupComplete] = useState(false)
     const [loadingCpf, setLoadingCpf] = useState(false)
     const [loadingCnpj, setLoadingCnpj] = useState(false)
 
@@ -117,24 +117,11 @@ const SignUp = () => {
                 isNewInstitution = true
             }
 
-            // 2. Sign Up User
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
-            })
-
-            if (authError) throw authError
-            if (!authData.user) throw new Error('Erro ao criar usuário')
-
-            // 3. Create Profile
-            // Determine Role
+            // 2. Determine Role
             let role = 'OPERADOR'
             if (isNewInstitution) {
                 role = 'UNIDADE_ADM'
             } else {
-                // Check if there are other users? Actually "First user of this CNPJ" logic
-                // If we found existingInst, check if it has users?
-                // Query users count?
                 const { count } = await supabase
                     .from('perfis_usuarios')
                     .select('*', { count: 'exact', head: true })
@@ -143,32 +130,26 @@ const SignUp = () => {
                 if (count === 0) role = 'UNIDADE_ADM'
             }
 
-            const { error: profileError } = await supabase
-                .from('perfis_usuarios')
-                .insert([{
-                    id: authData.user.id,
-                    nome: formData.name,
-                    email: formData.email,
-                    instituicao_id: institutionId,
-                    role: role,
-                    cpf: formData.cpf,
-                    whatsapp: formData.whatsapp, // Insert WhatsApp
-                    is_active: role === 'UNIDADE_ADM'
-                }])
+            // 3. Sign Up User. A database trigger creates the profile from this metadata.
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+                options: {
+                    data: {
+                        nome: formData.name,
+                        instituicao_id: institutionId,
+                        role: role,
+                        cpf: formData.cpf,
+                        whatsapp: formData.whatsapp,
+                        is_active: role === 'UNIDADE_ADM',
+                    },
+                },
+            })
 
-            if (profileError) {
-                // Cleanup auth user if profile fails? validation strictness?
-                console.error('Profile creation failed', profileError)
-                setError('Erro ao criar perfil. Contate o suporte.')
-                return
-            }
+            if (authError) throw authError
+            if (!authData.user) throw new Error('Erro ao criar usuário')
 
-            const urgencyId = searchParams.get('urgency_id')
-            if (urgencyId) {
-                navigate(`/dashboard?help_urgency=${urgencyId}`)
-            } else {
-                navigate('/') // Redirect to dashboard/home
-            }
+            setSignupComplete(true)
 
         } catch (err) {
             console.error(err)
@@ -176,6 +157,34 @@ const SignUp = () => {
         } finally {
             setLoading(false)
         }
+    }
+
+    if (signupComplete) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="max-w-md w-full space-y-6 p-8 bg-white shadow rounded-xl text-center">
+                    <div className="flex justify-center">
+                        <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-bold text-gray-900">Cadastro realizado</h2>
+                        <p className="mt-3 text-sm text-gray-600">
+                            Enviamos um e-mail de confirmação para <strong>{formData.email}</strong>.
+                            Confirme seu cadastro pelo link recebido antes de acessar sua conta.
+                        </p>
+                    </div>
+                    <div className="rounded-md bg-indigo-50 p-4 text-sm text-indigo-800">
+                        Se não encontrar a mensagem, verifique também a caixa de spam ou lixo eletrônico.
+                    </div>
+                    <Link
+                        to="/signin"
+                        className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    >
+                        Ir para login
+                    </Link>
+                </div>
+            </div>
+        )
     }
 
     return (
