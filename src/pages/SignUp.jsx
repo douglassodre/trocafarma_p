@@ -5,6 +5,8 @@ import { apiService } from '../services/apiService'
 
 import logo from '../assets/logo.png'
 
+const onlyDigits = (value) => value.replace(/\D/g, '')
+
 const SignUp = () => {
     const navigate = useNavigate()
     const [formData, setFormData] = useState({
@@ -59,11 +61,12 @@ const SignUp = () => {
     }
 
     const handleBlurCnpj = async () => {
-        if (!formData.cnpj || formData.cnpj.length < 14) return
+        const cleanCnpj = onlyDigits(formData.cnpj)
+        if (cleanCnpj.length !== 14) return
         setLoadingCnpj(true)
         setError(null)
         try {
-            const data = await apiService.fetchCNPJData(formData.cnpj)
+            const data = await apiService.fetchCNPJData(cleanCnpj)
             if (data) {
                 // BrasilAPI returns keys directly: nome_fantasia, razao_social
                 const name = data.nome_fantasia || data.razao_social || ''
@@ -86,25 +89,33 @@ const SignUp = () => {
             // 1. Check/Create Institution
             let institutionId = null
             let isNewInstitution = false
+            const cleanCnpj = onlyDigits(formData.cnpj)
+
+            if (cleanCnpj.length !== 14) {
+                throw new Error('Informe um CNPJ valido.')
+            }
 
             // Check if institution exists
-            const { data: existingInst } = await supabase
+            const { data: existingInst, error: existingInstError } = await supabase
                 .from('instituicoes')
                 .select('id')
-                .eq('cnpj', formData.cnpj)
-                .single()
+                .in('cnpj', [cleanCnpj, formData.cnpj])
+                .limit(1)
+                .maybeSingle()
+
+            if (existingInstError) throw existingInstError
 
             if (existingInst) {
                 institutionId = existingInst.id
             } else {
-                const cnpjData = await apiService.fetchCNPJData(formData.cnpj)
+                const cnpjData = await apiService.fetchCNPJData(cleanCnpj)
                 const name = cnpjData.nome_fantasia || cnpjData.razao_social || 'Nome Desconhecido'
                 const city = cnpjData.municipio || 'Desconhecida'
 
                 const { data: newInst, error: instError } = await supabase
                     .from('instituicoes')
                     .insert([{
-                        cnpj: formData.cnpj,
+                        cnpj: cleanCnpj,
                         nome_fantasia: name,
                         cidade: city,
                         status: 'PENDENTE'
@@ -138,6 +149,7 @@ const SignUp = () => {
                     data: {
                         nome: formData.name,
                         instituicao_id: institutionId,
+                        cnpj: cleanCnpj,
                         role: role,
                         cpf: formData.cpf,
                         whatsapp: formData.whatsapp,
