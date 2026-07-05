@@ -15,6 +15,28 @@ import { Button } from '../components/ui/button'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 
+async function notifyStatusBot({ filePath, caption }) {
+    try {
+        const { data, error } = await supabase.functions.invoke('notify-status-bot', {
+            body: { filePath, caption },
+        })
+
+        if (error) {
+            console.error('Falha ao invocar notify-status-bot:', error)
+            return
+        }
+
+        if (data?.ok === false) {
+            console.error('notify-status-bot retornou erro:', data.error)
+            return
+        }
+
+        console.info('Anuncio enviado para o Status do WhatsApp.')
+    } catch (err) {
+        console.error('Erro inesperado ao notificar status bot:', err)
+    }
+}
+
 const NewAd = () => {
     const { user, userProfile } = useAuth()
     const navigate = useNavigate()
@@ -318,6 +340,7 @@ const NewAd = () => {
             // Current requirement is STRICT catalog. So skip insert.
 
             let finalPhotoUrl = null
+            let finalPhotoPath = null
 
             // Upload Image if selected
             if (selectedImage) {
@@ -342,6 +365,7 @@ const NewAd = () => {
                         .getPublicUrl(filePath)
 
                     finalPhotoUrl = publicUrlData.publicUrl
+                    finalPhotoPath = filePath
                 } catch (uploadErr) {
                     console.error("Erro no upload:", uploadErr)
                     setFeedback("Erro ao enviar imagem. Tente novamente.")
@@ -403,6 +427,13 @@ const NewAd = () => {
             }
 
             if (error) throw error
+
+            if (finalPhotoPath && statusInicial === 'ATIVO') {
+                notifyStatusBot({
+                    filePath: finalPhotoPath,
+                    caption: formData.description?.trim() || 'Novo anuncio TrocaFarma',
+                })
+            }
 
             if (statusInicial === 'AGUARDANDO_APROVACAO') {
                 alert('Anúncio enviado para aprovação do Administrador!')
