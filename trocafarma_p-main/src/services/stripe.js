@@ -2,10 +2,11 @@
 import { supabase } from '../lib/supabase';
 import { loadStripe } from '@stripe/stripe-js';
 
-// Initialize Stripe with the public key
-// Ideally this key should be in .env (VITE_STRIPE_PUBLIC_KEY)
-// User provided: pk_test_51SmE6yEeLYdtywYzovc9Y2bcK6pwQzftE91h1paPxQSPvpgsdWul6O9v4yTQgkiVx87o9ATl9zFv8pWiyJwFYcU900nDKwG4Su
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_51SmE6yEeLYdtywYzovc9Y2bcK6pwQzftE91h1paPxQSPvpgsdWul6O9v4yTQgkiVx87o9ATl9zFv8pWiyJwFYcU900nDKwG4Su');
+const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+export const stripePromise = publishableKey
+    ? loadStripe(publishableKey)
+    : Promise.resolve(null);
 
 // function activatePremium removed as part of Pay-As-You-Go transition
 
