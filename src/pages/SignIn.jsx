@@ -12,6 +12,10 @@ const SignIn = () => {
     const [searchParams] = useSearchParams()
     const { signIn } = useAuth()
     const adminHost = isAdminHost()
+    const redirectParam = searchParams.get('redirect')
+    const redirectPath = redirectParam?.startsWith('/') && !redirectParam.startsWith('//')
+        ? redirectParam
+        : null
 
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -45,6 +49,8 @@ const SignIn = () => {
                     setError('Este acesso e exclusivo para administradores gerais da Trocafarma.')
                 } else if (profile?.instituicoes?.status === 'PENDENTE') {
                     navigate('/pending-approval')
+                } else if (redirectPath) {
+                    navigate(redirectPath)
                 } else {
                     if (urgencyId) {
                         navigate(`/dashboard?help_urgency=${urgencyId}`)

@@ -17,6 +17,7 @@ import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 
 const MAX_BULK_ITEMS = 20
+const EXPIRED_SESSION_MESSAGE = 'Sua sessao expirou. Entre novamente para continuar anunciando.'
 const DEFAULT_COMMON_DATA = {
     type: 'DOACAO',
     logistics: 'RETIRADA',
@@ -657,7 +658,7 @@ function AdItemFields({
 }
 
 const NewAd = () => {
-    const { user, userProfile } = useAuth()
+    const { user, userProfile, profileError, refreshProfile } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const itemCanvasRefs = useRef({})
@@ -926,13 +927,42 @@ const NewAd = () => {
         })
     }
 
-    const buildPayload = ({ item, finalPhotoUrl, statusInicial, expirationDateObj }) => {
+    const redirectToSignIn = useCallback(async () => {
+        await supabase.auth.signOut()
+        const redirect = encodeURIComponent(`${location.pathname}${location.search}`)
+        navigate(`/signin?redirect=${redirect}`, { replace: true })
+    }, [location.pathname, location.search, navigate])
+
+    const ensureActiveProfile = useCallback(async () => {
+        const { data: { user: activeUser }, error } = await supabase.auth.getUser()
+
+        if (error || !activeUser) {
+            await redirectToSignIn()
+            throw new Error(EXPIRED_SESSION_MESSAGE)
+        }
+
+        if (user && activeUser.id !== user.id) {
+            await redirectToSignIn()
+            throw new Error(EXPIRED_SESSION_MESSAGE)
+        }
+
+        if (userProfile) return { activeUser, activeProfile: userProfile }
+
+        const activeProfile = await refreshProfile(activeUser.id)
+        if (!activeProfile) {
+            throw new Error('Nao foi possivel validar seu perfil. Atualize a pagina e tente novamente.')
+        }
+
+        return { activeUser, activeProfile }
+    }, [redirectToSignIn, refreshProfile, user, userProfile])
+
+    const buildPayload = ({ item, finalPhotoUrl, statusInicial, expirationDateObj, activeUser, activeProfile }) => {
         const unitPrice = parseFloat(item.unitPrice) || 0
         const quantityForTotal = parseFloat(item.quantity) || 0
 
         return {
-            usuario_id: user.id,
-            instituicao_id: userProfile.instituicao_id,
+            usuario_id: activeUser.id,
+            instituicao_id: activeProfile.instituicao_id,
             item_codigo: item.itemCode,
             descricao_customizada: item.description,
             quantidade: item.quantity,
@@ -953,6 +983,18 @@ const NewAd = () => {
     }
 
     const validateForm = () => {
+        if (!user) {
+            return EXPIRED_SESSION_MESSAGE
+        }
+
+        if (profileError) {
+            return 'Nao foi possivel validar seu perfil. Atualize a pagina e tente novamente.'
+        }
+
+        if (!userProfile) {
+            return 'Ainda estamos validando seu perfil. Aguarde alguns segundos e tente novamente.'
+        }
+
         if (!commonData.cidade?.trim()) {
             return 'Cidade e obrigatoria. Por favor, libere a localizacao ou preencha manualmente.'
         }
@@ -1031,11 +1073,12 @@ const NewAd = () => {
         const uploadedPaths = []
 
         try {
+            const { activeUser, activeProfile } = await ensureActiveProfile()
             const daysToAdd = 30
             const expirationDateObj = new Date()
             expirationDateObj.setDate(expirationDateObj.getDate() + daysToAdd)
 
-            const statusInicial = (userProfile?.requer_aprovacao === true && userProfile?.role !== 'UNIDADE_ADM')
+            const statusInicial = (activeProfile?.requer_aprovacao === true && activeProfile?.role !== 'UNIDADE_ADM')
                 ? 'AGUARDANDO_APROVACAO'
                 : 'ATIVO'
 
@@ -1058,7 +1101,7 @@ const NewAd = () => {
 
                         const processedBlob = await canvasToJpegBlob(canvas)
                         const fileName = `${Date.now()}_${item.id}_${Math.random().toString(36).slice(2)}.jpg`
-                        const filePath = `${user.id}/${fileName}`
+                        const filePath = `${activeUser.id}/${fileName}`
 
                         const { error: uploadError } = await supabase.storage
                             .from('anuncios-fotos')
@@ -1085,7 +1128,9 @@ const NewAd = () => {
                     item,
                     finalPhotoUrl,
                     statusInicial,
-                    expirationDateObj
+                    expirationDateObj,
+                    activeUser,
+                    activeProfile
                 }))
                 notifications.push({
                     filePath: finalPhotoPath,
