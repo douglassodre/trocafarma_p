@@ -355,7 +355,6 @@ function AdItemFields({
     const canvasRef = useRef(null)
     const { id, previewUrl, description, expirationDate, batch, quantity, unitPrice } = item
     const { type, logistics, cidade, estado } = commonData
-    const previewData = mergeForStatus(item, commonData)
     const fileInputId = `file-upload-${id}`
 
     useEffect(() => {
@@ -366,7 +365,7 @@ function AdItemFields({
     useEffect(() => {
         let cancelled = false
 
-        if (!previewUrl || !canvasRef.current) {
+        if (!canvasRef.current) {
             onPreviewChange(id, { previewReady: false, previewError: '' })
             return undefined
         }
@@ -614,28 +613,20 @@ function AdItemFields({
                 <div>
                     <Label className="mb-2 block">Previa do WhatsApp</Label>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-                        {previewUrl ? (
-                            <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                                <canvas
-                                    ref={canvasRef}
-                                    width={1080}
-                                    height={1350}
-                                    className="block aspect-[4/5] w-full bg-white"
-                                    aria-label="Previa visual do post no WhatsApp"
-                                />
-                                {(!item.previewReady || item.uploadingImage) && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm font-semibold text-slate-700">
-                                        {item.uploadingImage ? 'Enviando preview...' : 'Montando preview...'}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="mx-auto w-full max-w-md rounded-xl bg-[#efeae2] p-4">
-                                <div className="ml-auto max-w-[92%] whitespace-pre-line rounded-lg bg-[#d9fdd3] p-3 text-sm leading-relaxed text-slate-900 shadow-sm">
-                                    {buildStatusCaption(previewData)}
+                        <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <canvas
+                                ref={canvasRef}
+                                width={1080}
+                                height={1350}
+                                className="block aspect-[4/5] w-full bg-white"
+                                aria-label="Previa visual do post no WhatsApp"
+                            />
+                            {(!item.previewReady || item.uploadingImage) && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm font-semibold text-slate-700">
+                                    {item.uploadingImage ? 'Enviando preview...' : 'Montando preview...'}
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {item.previewError && (
                             <p className="mt-3 text-sm text-red-600">{item.previewError}</p>
@@ -685,7 +676,7 @@ const NewAd = () => {
                 ? {
                     ...item,
                     ...changes,
-                    ...(resetApproval ? { previewApproved: false } : {})
+                    ...(resetApproval ? { previewApproved: false, previewReady: false } : {})
                 }
                 : item
         )))
@@ -831,7 +822,11 @@ const NewAd = () => {
         if (!fallbackType) return
 
         setCommonData(prev => ({ ...prev, type: fallbackType }))
-        setItems(prevItems => prevItems.map(item => ({ ...item, previewApproved: false })))
+        setItems(prevItems => prevItems.map(item => ({
+            ...item,
+            previewApproved: false,
+            previewReady: false
+        })))
     }, [userProfile, commonData.type, canCreateType])
 
     const handleSearch = useCallback(async (query) => {
@@ -857,7 +852,11 @@ const NewAd = () => {
         setCommonData(prev => ({ ...prev, [name]: value }))
 
         if (['type', 'logistics', 'cidade', 'estado'].includes(name)) {
-            setItems(prevItems => prevItems.map(item => ({ ...item, previewApproved: false })))
+            setItems(prevItems => prevItems.map(item => ({
+                ...item,
+                previewApproved: false,
+                previewReady: false
+            })))
         }
     }
 
@@ -1050,7 +1049,7 @@ const NewAd = () => {
                 return `${label}: aprove a previa do WhatsApp antes de salvar o anuncio.`
             }
 
-            if (item.previewUrl && !item.previewReady) {
+            if (!item.previewReady) {
                 return `${label}: aguarde a previa do WhatsApp ser processada.`
             }
         }
@@ -1090,38 +1089,36 @@ const NewAd = () => {
                 let finalPhotoUrl = null
                 let finalPhotoPath = null
 
-                if (item.previewUrl) {
-                    setItemPreviewState(item.id, { uploadingImage: true })
+                setItemPreviewState(item.id, { uploadingImage: true })
 
-                    try {
-                        const canvas = itemCanvasRefs.current[item.id]
-                        if (!canvas || !item.previewReady) {
-                            throw new Error('Preview ainda nao esta pronto')
-                        }
-
-                        const processedBlob = await canvasToJpegBlob(canvas)
-                        const fileName = `${Date.now()}_${item.id}_${Math.random().toString(36).slice(2)}.jpg`
-                        const filePath = `${activeUser.id}/${fileName}`
-
-                        const { error: uploadError } = await supabase.storage
-                            .from('anuncios-fotos')
-                            .upload(filePath, processedBlob, {
-                                contentType: 'image/jpeg',
-                                upsert: false
-                            })
-
-                        if (uploadError) throw uploadError
-
-                        const { data: publicUrlData } = supabase.storage
-                            .from('anuncios-fotos')
-                            .getPublicUrl(filePath)
-
-                        finalPhotoUrl = publicUrlData.publicUrl
-                        finalPhotoPath = filePath
-                        uploadedPaths.push(filePath)
-                    } finally {
-                        setItemPreviewState(item.id, { uploadingImage: false })
+                try {
+                    const canvas = itemCanvasRefs.current[item.id]
+                    if (!canvas || !item.previewReady) {
+                        throw new Error('A previa do WhatsApp ainda esta sendo montada. Aguarde alguns segundos e tente novamente.')
                     }
+
+                    const processedBlob = await canvasToJpegBlob(canvas)
+                    const fileName = `${Date.now()}_${item.id}_${Math.random().toString(36).slice(2)}.jpg`
+                    const filePath = `${activeUser.id}/${fileName}`
+
+                    const { error: uploadError } = await supabase.storage
+                        .from('anuncios-fotos')
+                        .upload(filePath, processedBlob, {
+                            contentType: 'image/jpeg',
+                            upsert: false
+                        })
+
+                    if (uploadError) throw uploadError
+
+                    const { data: publicUrlData } = supabase.storage
+                        .from('anuncios-fotos')
+                        .getPublicUrl(filePath)
+
+                    finalPhotoUrl = publicUrlData.publicUrl
+                    finalPhotoPath = filePath
+                    uploadedPaths.push(filePath)
+                } finally {
+                    setItemPreviewState(item.id, { uploadingImage: false })
                 }
 
                 payloads.push(buildPayload({
@@ -1154,7 +1151,9 @@ const NewAd = () => {
             }
 
             if (statusInicial === 'ATIVO') {
-                notifications.forEach((notification) => notifyStatusBot(notification))
+                await Promise.allSettled(
+                    notifications.map((notification) => notifyStatusBot(notification))
+                )
             }
 
             if (statusInicial === 'AGUARDANDO_APROVACAO') {
@@ -1186,7 +1185,7 @@ const NewAd = () => {
         }
     }
 
-    const hasPendingPreview = items.some(item => item.previewUrl && !item.previewReady)
+    const hasPendingPreview = items.some(item => !item.previewReady)
     const hasUploadingImage = items.some(item => item.uploadingImage)
     const hasNoAdPermission = userProfile
         && !canCreateType('DOACAO')
