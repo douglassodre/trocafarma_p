@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
+import logoImageUrl from '../assets/logo.png'
 import {
     ArrowLeft, MapPin, Search, Calendar,
     Package, FileText, Camera, Save, X, Type,
@@ -35,6 +36,254 @@ async function notifyStatusBot({ filePath, caption }) {
     } catch (err) {
         console.error('Erro inesperado ao notificar status bot:', err)
     }
+}
+
+function formatDate(value) {
+    if (!value) return 'Nao informado'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('pt-BR')
+}
+
+function buildStatusCaption(formData) {
+    const lines = [
+        'Medicamento disponivel para troca',
+        '',
+        formData.description?.trim() || 'Novo anuncio TrocaFarma',
+        `Validade: ${formatDate(formData.expirationDate)}`,
+        `Lote: ${formData.batch?.trim() || 'Nao informado'}`,
+        `Quantidade: ${formData.quantity || 'Nao informada'}`,
+        `Tipo: ${formData.type || 'Nao informado'}`,
+        `Logistica: ${formData.logistics || 'A combinar'}`,
+    ]
+
+    if (formData.cidade || formData.estado) {
+        lines.push(`Local: ${[formData.cidade, formData.estado].filter(Boolean).join(' - ')}`)
+    }
+
+    lines.push('', 'Tenho interesse? Acesse o TrocaFarma.')
+    return lines.join('\n')
+}
+
+const STORAGE_PUBLIC_PREFIX = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anuncios-fotos/`
+
+function getStoragePathFromPublicUrl(photoUrl) {
+    if (!photoUrl?.startsWith(STORAGE_PUBLIC_PREFIX)) return null
+    return decodeURIComponent(photoUrl.slice(STORAGE_PUBLIC_PREFIX.length))
+}
+
+function formatMonthYear(value) {
+    if (!value) return 'MM/AAAA'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return 'MM/AAAA'
+    return date.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })
+}
+
+function roundedRectPath(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + width - r, y)
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+    ctx.lineTo(x + width, y + height - r)
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+    ctx.lineTo(x + r, y + height)
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+    ctx.closePath()
+}
+
+function fillRoundedRect(ctx, x, y, width, height, radius, fillStyle) {
+    roundedRectPath(ctx, x, y, width, height, radius)
+    ctx.fillStyle = fillStyle
+    ctx.fill()
+}
+
+function strokeRoundedRect(ctx, x, y, width, height, radius, strokeStyle, lineWidth = 1) {
+    roundedRectPath(ctx, x, y, width, height, radius)
+    ctx.strokeStyle = strokeStyle
+    ctx.lineWidth = lineWidth
+    ctx.stroke()
+}
+
+function drawContainedImage(ctx, image, x, y, width, height) {
+    const scale = Math.min(width / image.width, height / image.height)
+    const drawWidth = image.width * scale
+    const drawHeight = image.height * scale
+    const drawX = x + (width - drawWidth) / 2
+    const drawY = y + (height - drawHeight) / 2
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight)
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 4) {
+    const paragraphs = String(text || '').split('\n')
+    let currentY = y
+    let linesUsed = 0
+
+    for (const paragraph of paragraphs) {
+        const words = paragraph.split(/\s+/).filter(Boolean)
+        let line = ''
+
+        for (const word of words) {
+            const testLine = line ? `${line} ${word}` : word
+            if (ctx.measureText(testLine).width > maxWidth && line) {
+                ctx.fillText(line, x, currentY)
+                currentY += lineHeight
+                linesUsed += 1
+                line = word
+
+                if (linesUsed >= maxLines) return currentY
+            } else {
+                line = testLine
+            }
+        }
+
+        if (line && linesUsed < maxLines) {
+            ctx.fillText(line, x, currentY)
+            currentY += lineHeight
+            linesUsed += 1
+        }
+
+        if (linesUsed >= maxLines) return currentY
+    }
+
+    return currentY
+}
+
+function loadCanvasImage(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = reject
+        image.src = src
+    })
+}
+
+async function loadFileImage(file) {
+    const objectUrl = URL.createObjectURL(file)
+    try {
+        return await loadCanvasImage(objectUrl)
+    } finally {
+        URL.revokeObjectURL(objectUrl)
+    }
+}
+
+function canvasToJpegBlob(canvas) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) resolve(blob)
+            else reject(new Error('Falha ao processar imagem no canvas'))
+        }, 'image/jpeg', 0.9)
+    })
+}
+
+async function buildStatusTemplateImage(file, formData) {
+    const productImage = await loadFileImage(file)
+    const logoImage = await loadCanvasImage(logoImageUrl)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    if (!ctx) throw new Error('Canvas indisponivel')
+
+    canvas.width = 1080
+    canvas.height = 1350
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
+    gradient.addColorStop(0, '#ffffff')
+    gradient.addColorStop(1, '#f3f5fb')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    ctx.shadowColor = 'rgba(31, 41, 55, 0.16)'
+    ctx.shadowBlur = 28
+    ctx.shadowOffsetY = 12
+    fillRoundedRect(ctx, 82, 72, 916, 1200, 42, '#ffffff')
+    ctx.shadowColor = 'transparent'
+    strokeRoundedRect(ctx, 82, 72, 916, 1200, 42, '#bda9f2', 4)
+
+    ctx.drawImage(logoImage, 490, 42, 100, 100)
+    ctx.strokeStyle = '#bda9f2'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(130, 124)
+    ctx.lineTo(440, 124)
+    ctx.moveTo(640, 124)
+    ctx.lineTo(950, 124)
+    ctx.stroke()
+
+    ctx.fillStyle = '#111827'
+    ctx.font = 'bold 62px Arial, sans-serif'
+    drawWrappedText(ctx, 'Medicamento Disponivel para Troca', 150, 230, 470, 70, 3)
+
+    ctx.shadowColor = 'rgba(31, 41, 55, 0.22)'
+    ctx.shadowBlur = 20
+    ctx.shadowOffsetY = 10
+    fillRoundedRect(ctx, 720, 162, 220, 160, 34, '#ffffff')
+    ctx.shadowColor = 'transparent'
+    ctx.drawImage(logoImage, 790, 172, 80, 80)
+    ctx.fillStyle = '#111827'
+    ctx.font = '28px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Selo Validade:', 830, 280)
+    ctx.fillText(formatMonthYear(formData.expirationDate), 830, 316)
+    ctx.textAlign = 'left'
+
+    ctx.shadowColor = 'rgba(31, 41, 55, 0.18)'
+    ctx.shadowBlur = 22
+    ctx.shadowOffsetY = 12
+    fillRoundedRect(ctx, 150, 360, 780, 420, 34, '#ffffff')
+    ctx.shadowColor = 'transparent'
+    strokeRoundedRect(ctx, 150, 360, 780, 420, 34, '#eef0f7', 3)
+
+    ctx.save()
+    roundedRectPath(ctx, 172, 382, 736, 376, 24)
+    ctx.clip()
+    ctx.fillStyle = '#f8fafc'
+    ctx.fillRect(172, 382, 736, 376)
+    drawContainedImage(ctx, productImage, 190, 400, 700, 340)
+    ctx.restore()
+
+    ctx.fillStyle = '#111827'
+    ctx.font = '38px Arial, sans-serif'
+    const details = [
+        formData.description?.trim() || 'Novo anuncio TrocaFarma',
+        `Validade: ${formatDate(formData.expirationDate)} | Lote: ${formData.batch?.trim() || 'Nao informado'}`,
+        `Quantidade: ${formData.quantity || 'Nao informada'} | Tipo: ${formData.type || 'Nao informado'}`,
+        `Logistica: ${formData.logistics || 'A combinar'}`,
+        formData.cidade || formData.estado
+            ? `Local: ${[formData.cidade, formData.estado].filter(Boolean).join(' - ')}`
+            : '',
+    ].filter(Boolean).join('\n')
+    drawWrappedText(ctx, details, 150, 860, 780, 50, 7)
+
+    const buttonGradient = ctx.createLinearGradient(150, 1080, 930, 1080)
+    buttonGradient.addColorStop(0, '#4167d9')
+    buttonGradient.addColorStop(1, '#2452d6')
+    fillRoundedRect(ctx, 150, 1080, 780, 112, 56, buttonGradient)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 44px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Tenho Interesse', 540, 1152)
+    ctx.textAlign = 'left'
+
+    ctx.drawImage(logoImage, 500, 1210, 80, 80)
+    ctx.strokeStyle = '#bda9f2'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(130, 1248)
+    ctx.lineTo(470, 1248)
+    ctx.moveTo(610, 1248)
+    ctx.lineTo(950, 1248)
+    ctx.stroke()
+
+    ctx.fillStyle = '#111827'
+    ctx.font = '32px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Anuncie gratuitamente pelo TrocaFarma', 540, 1310)
+    ctx.textAlign = 'left'
+
+    return canvasToJpegBlob(canvas)
 }
 
 const NewAd = () => {
@@ -70,7 +319,7 @@ const NewAd = () => {
     })
 
     // Logic State
-    const [saveToCatalog, setSaveToCatalog] = useState(false)
+    const [, setSaveToCatalog] = useState(false)
     const [feedback, setFeedback] = useState('')
     const [isEditMode, setIsEditMode] = useState(false)
     const [editingId, setEditingId] = useState(null)
@@ -200,57 +449,6 @@ const NewAd = () => {
         }
     }
 
-    const processImageWithWatermark = async (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader()
-            reader.readAsDataURL(file)
-            reader.onload = (event) => {
-                const img = new Image()
-                img.src = event.target.result
-                img.onload = () => {
-                    const canvas = document.createElement('canvas')
-                    const ctx = canvas.getContext('2d')
-
-                    // Set canvas dimensions to match image
-                    canvas.width = img.width
-                    canvas.height = img.height
-
-                    // Draw original image
-                    ctx.drawImage(img, 0, 0)
-
-                    // Add Watermark
-                    const text = "Gerado via TrocaFarma"
-                    const fontSize = Math.max(20, img.width * 0.04) // Responsive font size
-                    ctx.font = `bold ${fontSize}px sans-serif`
-                    ctx.fillStyle = "white"
-                    ctx.textAlign = "right"
-                    ctx.textBaseline = "bottom"
-
-                    // Add shadow for better visibility
-                    ctx.shadowColor = "rgba(0, 0, 0, 0.7)"
-                    ctx.shadowBlur = 4
-                    ctx.shadowOffsetX = 2
-                    ctx.shadowOffsetY = 2
-
-                    // Position text at bottom right with padding
-                    const padding = Math.max(10, img.width * 0.02)
-                    ctx.fillText(text, canvas.width - padding, canvas.height - padding)
-
-                    // Convert to Blob
-                    canvas.toBlob((blob) => {
-                        if (blob) {
-                            resolve(blob)
-                        } else {
-                            reject(new Error("Falha ao processar imagem no canvas"))
-                        }
-                    }, 'image/jpeg', 0.85) // Quality 0.85
-                }
-                img.onerror = (err) => reject(err)
-            }
-            reader.onerror = (err) => reject(err)
-        })
-    }
-
     // Wrapper for Autocomplete
     const handleSearch = async (query) => {
         try {
@@ -346,7 +544,7 @@ const NewAd = () => {
             if (selectedImage) {
                 setUploadingImage(true)
                 try {
-                    const processedBlob = await processImageWithWatermark(selectedImage)
+                    const processedBlob = await buildStatusTemplateImage(selectedImage, formData)
                     const fileExt = 'jpg' // We converted to jpeg
                     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
                     const filePath = `${user.id}/${fileName}`
@@ -377,6 +575,7 @@ const NewAd = () => {
             } else if (isEditMode && previewUrl && previewUrl.startsWith('http')) {
                 // Keep existing URL if edit mode and no new file selected
                 finalPhotoUrl = previewUrl
+                finalPhotoPath = getStoragePathFromPublicUrl(previewUrl)
             }
 
 
@@ -428,10 +627,10 @@ const NewAd = () => {
 
             if (error) throw error
 
-            if (finalPhotoPath && statusInicial === 'ATIVO') {
+            if (statusInicial === 'ATIVO') {
                 notifyStatusBot({
                     filePath: finalPhotoPath,
-                    caption: formData.description?.trim() || 'Novo anuncio TrocaFarma',
+                    caption: buildStatusCaption(formData),
                 })
             }
 

@@ -16,6 +16,59 @@ import { Button } from '../components/ui/button'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 
+const STORAGE_PUBLIC_PREFIX = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anuncios-fotos/`
+
+async function notifyStatusBot({ filePath, caption }) {
+    try {
+        const { data, error } = await supabase.functions.invoke('notify-status-bot', {
+            body: { filePath, caption },
+        })
+
+        if (error) {
+            console.error('Falha ao invocar notify-status-bot:', error)
+            return
+        }
+
+        if (data?.ok === false) {
+            console.error('notify-status-bot retornou erro:', data.error)
+        }
+    } catch (err) {
+        console.error('Erro inesperado ao notificar status bot:', err)
+    }
+}
+
+function formatDate(value) {
+    if (!value) return 'Nao informado'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('pt-BR')
+}
+
+function getStoragePathFromPublicUrl(photoUrl) {
+    if (!photoUrl?.startsWith(STORAGE_PUBLIC_PREFIX)) return null
+    return decodeURIComponent(photoUrl.slice(STORAGE_PUBLIC_PREFIX.length))
+}
+
+function buildStatusCaption(formData) {
+    const lines = [
+        'Medicamento disponivel para troca',
+        '',
+        formData.description?.trim() || 'Novo anuncio TrocaFarma',
+        `Validade: ${formatDate(formData.expirationDate)}`,
+        `Lote: ${formData.batch?.trim() || 'Nao informado'}`,
+        `Quantidade: ${formData.quantity || 'Nao informada'}`,
+        `Tipo: ${formData.type || 'Nao informado'}`,
+        `Logistica: ${formData.logistics || 'A combinar'}`,
+    ]
+
+    if (formData.cidade || formData.estado) {
+        lines.push(`Local: ${[formData.cidade, formData.estado].filter(Boolean).join(' - ')}`)
+    }
+
+    lines.push('', 'Tenho interesse? Acesse o TrocaFarma.')
+    return lines.join('\n')
+}
+
 const NewAd = () => {
     const { user, userProfile } = useAuth()
     const navigate = useNavigate()
@@ -49,7 +102,7 @@ const NewAd = () => {
     })
 
     // Logic State
-    const [saveToCatalog, setSaveToCatalog] = useState(false)
+    const [, setSaveToCatalog] = useState(false)
     const [feedback, setFeedback] = useState('')
     const [isEditMode, setIsEditMode] = useState(false)
     const [editingId, setEditingId] = useState(null)
@@ -319,6 +372,7 @@ const NewAd = () => {
             // Current requirement is STRICT catalog. So skip insert.
 
             let finalPhotoUrl = null
+            let finalPhotoPath = null
 
             // Upload Image if selected
             if (selectedImage) {
@@ -343,18 +397,8 @@ const NewAd = () => {
                         .getPublicUrl(filePath)
 
                     finalPhotoUrl = publicUrlData.publicUrl
+                    finalPhotoPath = filePath
 
-                    // Notifica a Edge Function de forma fire-and-forget.
-                    // O .catch() garante que uma falha aqui nunca trava a criação do anúncio.
-                    supabase.functions.invoke('notify-status-bot', {
-                        body: {
-                            filePath,
-                            caption: formData.description || 'Novo anúncio TrocaFarma',
-                        },
-                    }).catch((err) => {
-                        // fire-and-forget: erro aqui nunca deve travar a criacao do anuncio
-                        console.error('Falha ao notificar status bot:', err)
-                    })
                 } catch (uploadErr) {
                     console.error("Erro no upload:", uploadErr)
                     setFeedback("Erro ao enviar imagem. Tente novamente.")
@@ -366,6 +410,7 @@ const NewAd = () => {
             } else if (isEditMode && previewUrl && previewUrl.startsWith('http')) {
                 // Keep existing URL if edit mode and no new file selected
                 finalPhotoUrl = previewUrl
+                finalPhotoPath = getStoragePathFromPublicUrl(previewUrl)
             }
 
 
@@ -416,6 +461,13 @@ const NewAd = () => {
             }
 
             if (error) throw error
+
+            if (statusInicial === 'ATIVO') {
+                notifyStatusBot({
+                    filePath: finalPhotoPath,
+                    caption: buildStatusCaption(formData),
+                })
+            }
 
             if (statusInicial === 'AGUARDANDO_APROVACAO') {
                 alert('Anúncio enviado para aprovação do Administrador!')

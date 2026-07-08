@@ -4,6 +4,59 @@ import { useAuth } from '../contexts/AuthContext'
 import { Check, X, Eye } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+const STORAGE_PUBLIC_PREFIX = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anuncios-fotos/`
+
+function formatDate(value) {
+    if (!value) return 'Nao informado'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('pt-BR')
+}
+
+function getStoragePathFromPublicUrl(photoUrl) {
+    if (!photoUrl?.startsWith(STORAGE_PUBLIC_PREFIX)) return null
+    return decodeURIComponent(photoUrl.slice(STORAGE_PUBLIC_PREFIX.length))
+}
+
+function buildStatusCaptionFromAd(ad) {
+    const lines = [
+        'Medicamento disponivel para troca',
+        '',
+        ad.descricao_customizada?.trim() || 'Novo anuncio TrocaFarma',
+        `Validade: ${formatDate(ad.data_vencimento)}`,
+        `Lote: ${ad.lote?.trim() || 'Nao informado'}`,
+        `Quantidade: ${ad.quantidade || 'Nao informada'}`,
+        `Tipo: ${ad.tipo || 'Nao informado'}`,
+        `Logistica: ${ad.logistica || 'A combinar'}`,
+    ]
+
+    if (ad.cidade || ad.estado) {
+        lines.push(`Local: ${[ad.cidade, ad.estado].filter(Boolean).join(' - ')}`)
+    }
+
+    lines.push('', 'Tenho interesse? Acesse o TrocaFarma.')
+    return lines.join('\n')
+}
+
+async function notifyStatusBot({ filePath, caption }) {
+    try {
+        const { data, error } = await supabase.functions.invoke('notify-status-bot', {
+            body: { filePath, caption },
+        })
+
+        if (error) {
+            console.error('Falha ao invocar notify-status-bot:', error)
+            return
+        }
+
+        if (data?.ok === false) {
+            console.error('notify-status-bot retornou erro:', data.error)
+        }
+    } catch (err) {
+        console.error('Erro inesperado ao notificar status bot:', err)
+    }
+}
+
 const PendingAds = () => {
     const { userProfile } = useAuth()
     const navigate = useNavigate()
@@ -42,6 +95,7 @@ const PendingAds = () => {
         // action: 'APPROVE' | 'REJECT'
         try {
             const newStatus = action === 'APPROVE' ? 'ATIVO' : 'REJEITADO'
+            const currentAd = ads.find((ad) => ad.id === adId)
 
             // If reject, maybe delete? For now just mark as REJECTED so user sees history? 
             // Or soft delete. Let's stick to REJEITADO for visibility.
@@ -52,6 +106,13 @@ const PendingAds = () => {
                 .eq('id', adId)
 
             if (error) throw error
+
+            if (action === 'APPROVE' && currentAd) {
+                notifyStatusBot({
+                    filePath: getStoragePathFromPublicUrl(currentAd.foto_url),
+                    caption: buildStatusCaptionFromAd(currentAd),
+                })
+            }
 
             setAds(ads.filter(a => a.id !== adId))
         } catch (error) {

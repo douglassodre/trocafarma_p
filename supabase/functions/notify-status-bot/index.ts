@@ -9,10 +9,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const STATUS_BOT_URL = Deno.env.get('STATUS_BOT_URL')!
 const STATUS_BOT_TOKEN = Deno.env.get('STATUS_BOT_TOKEN')!
+const WEBHOOK_TOKEN_HEADER = 'x-status-webhook-token'
+const STORAGE_PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/anuncios-fotos/`
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': `authorization, x-client-info, apikey, content-type, ${WEBHOOK_TOKEN_HEADER}`,
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -24,19 +26,35 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary)
 }
 
-async function postStatusWithRetry(imageBase64: string, caption: string) {
+function buildStatusBotRequest(imageBase64: string | null, caption: string) {
+  if (imageBase64) {
+    return {
+      url: STATUS_BOT_URL,
+      body: { imageBase64, caption },
+    }
+  }
+
+  const textStatusUrl = STATUS_BOT_URL.replace(/\/post-status\/?$/, '/post-status-text')
+  return {
+    url: textStatusUrl,
+    body: textStatusUrl === STATUS_BOT_URL ? { caption } : { text: caption },
+  }
+}
+
+async function postStatusWithRetry(imageBase64: string | null, caption: string) {
   const attempt = async () => {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15_000)
+    const statusBotRequest = buildStatusBotRequest(imageBase64, caption)
 
     try {
-      const response = await fetch(STATUS_BOT_URL, {
+      const response = await fetch(statusBotRequest.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-internal-token': STATUS_BOT_TOKEN,
         },
-        body: JSON.stringify({ imageBase64, caption }),
+        body: JSON.stringify(statusBotRequest.body),
         signal: controller.signal,
       })
       clearTimeout(timeout)
@@ -72,55 +90,104 @@ async function postStatusWithRetry(imageBase64: string, caption: string) {
   }
 }
 
+function getFilePathFromUrl(photoUrl?: string): string | null {
+  if (!photoUrl?.startsWith(STORAGE_PUBLIC_PREFIX)) return null
+  return decodeURIComponent(photoUrl.slice(STORAGE_PUBLIC_PREFIX.length))
+}
+
+function resolvePayload(payload: Record<string, unknown>) {
+  const record = payload.record as Record<string, unknown> | undefined
+  const filePath = typeof payload.filePath === 'string'
+    ? payload.filePath
+    : getFilePathFromUrl(record?.foto_url as string | undefined)
+
+  const caption = typeof payload.caption === 'string'
+    ? payload.caption
+    : record?.descricao_customizada as string | undefined
+
+  const ownerId = typeof record?.usuario_id === 'string'
+    ? record.usuario_id
+    : filePath?.split('/')[0]
+
+  return {
+    filePath,
+    caption: caption?.trim() || 'Novo anuncio TrocaFarma',
+    ownerId,
+  }
+}
+
+async function assertAuthorized(req: Request, supabase: ReturnType<typeof createClient>) {
+  const webhookToken = req.headers.get(WEBHOOK_TOKEN_HEADER)
+  if (webhookToken && webhookToken === STATUS_BOT_TOKEN) {
+    return { source: 'database-webhook' as const, userId: null }
+  }
+
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const jwt = authHeader.replace(/^Bearer\s+/i, '')
+
+  if (!jwt) {
+    return { source: null, userId: null }
+  }
+
+  const { data, error } = await supabase.auth.getUser(jwt)
+  if (error || !data.user) {
+    return { source: null, userId: null }
+  }
+
+  return { source: 'user' as const, userId: data.user.id }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
-    const authHeader = req.headers.get('Authorization') ?? ''
-    const jwt = authHeader.replace(/^Bearer\s+/i, '')
-
-    if (!jwt) {
-      return new Response(JSON.stringify({ ok: false, error: 'usuario nao autenticado' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    const { data: authData, error: authError } = await supabase.auth.getUser(jwt)
+    const auth = await assertAuthorized(req, supabase)
 
-    if (authError || !authData.user) {
+    if (!auth.source) {
       return new Response(JSON.stringify({ ok: false, error: 'usuario nao autenticado' }), {
         status: 401,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
 
-    const { filePath, caption } = await req.json()
+    const payload = await req.json()
+    const { filePath, caption, ownerId } = resolvePayload(payload)
 
-    if (!filePath || !caption) {
+    if (!caption) {
       return new Response(
-        JSON.stringify({ ok: false, error: 'filePath e caption sao obrigatorios' }),
+        JSON.stringify({ ok: false, error: 'caption ou record.descricao_customizada e obrigatorio' }),
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       )
     }
 
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('anuncios-fotos')
-      .download(filePath)
-
-    if (downloadError || !fileData) {
-      console.error('Falha ao baixar imagem do storage:', downloadError)
-      return new Response(
-        JSON.stringify({ ok: false, error: 'falha ao baixar imagem do storage' }),
-        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
-      )
+    if (auth.source === 'user' && ownerId && ownerId !== auth.userId) {
+      return new Response(JSON.stringify({ ok: false, error: 'imagem nao pertence ao usuario autenticado' }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
     }
 
-    const arrayBuffer = await fileData.arrayBuffer()
-    const imageBase64 = arrayBufferToBase64(arrayBuffer)
+    let imageBase64: string | null = null
+    if (filePath) {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('anuncios-fotos')
+        .download(filePath)
+
+      if (downloadError || !fileData) {
+        console.error('Falha ao baixar imagem do storage:', downloadError)
+        return new Response(
+          JSON.stringify({ ok: false, error: 'falha ao baixar imagem do storage' }),
+          { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+        )
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer()
+      imageBase64 = arrayBufferToBase64(arrayBuffer)
+    }
+
     const result = await postStatusWithRetry(imageBase64, caption)
 
     if (!result.ok) {
