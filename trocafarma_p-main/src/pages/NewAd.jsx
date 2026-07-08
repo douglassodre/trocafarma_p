@@ -355,7 +355,7 @@ const NewAd = () => {
 
         // Type Specific Checks
         if (formData.type === 'EMPRESTIMO' && !formData.returnDate) {
-            setFeedback('Prazo de devolução é obrigatório para empréstimos.')
+            setFeedback('Previsão de devolução é obrigatório para empréstimos.')
             setLoading(false)
             return
         }
@@ -758,7 +758,7 @@ const NewAd = () => {
 
                             {formData.type === 'EMPRESTIMO' && (
                                 <div className="mt-4 animate-fadeIn">
-                                    <Label className="mb-2 block">Prazo de Devolução</Label>
+                                    <Label className="mb-2 block">Previsão de Devolução</Label>
                                     <Input
                                         type="date"
                                         name="returnDate"

@@ -262,7 +262,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
 
-            <div className={`bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden relative animate-fade-in-up transition-all duration-500 ease-in-out ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
+            <div className={`bg-white rounded-lg w-full max-w-lg shadow-2xl overflow-hidden relative animate-fade-in-up transition-all duration-500 ease-in-out ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
@@ -273,7 +273,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                 {/* Progress Bar */}
                 <div className="h-2 bg-gray-100 w-full">
                     <div
-                        className="h-full bg-green-500 transition-all duration-300"
+                        className="h-full bg-brand-deep transition-all duration-300"
                         style={{ width: `${(step / 4) * 100}%` }}
                     ></div>
                 </div>
@@ -303,7 +303,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade Necessária</label>
                                 <input
                                     type="number"
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                                    className="w-full p-3 border border-brand-lavender/60 rounded-lg focus:ring-2 focus:ring-brand-periwinkle outline-none"
                                     value={formData.quantidade}
                                     onChange={(e) => setFormData({ ...formData, quantidade: e.target.value })}
                                     placeholder="0"
@@ -333,18 +333,18 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                     {/* Step 3: Transparency */}
                     {step === 3 && (
                         <div className="space-y-6 text-center">
-                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Search className="text-blue-600 w-8 h-8" />
+                            <div className="w-16 h-16 bg-brand-periwinkle/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Search className="text-brand-deep w-8 h-8" />
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900">Resumo da Operação</h2>
 
-                            <div className="bg-gray-50 p-6 rounded-xl space-y-4 text-left">
+                            <div className="bg-brand-lavender/10 p-6 rounded-lg space-y-4 text-left">
                                 <div className="flex items-center text-gray-700">
-                                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                                    <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
                                     <span>Sua solicitação será enviada para <strong>42 instituições</strong> em Salvador.</span>
                                 </div>
                                 <div className="flex items-center text-gray-700">
-                                    <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                                    <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
                                     <span>Taxa de Gestão de Mútuo: <strong>1%</strong> (apenas se houver sucesso).</span>
                                 </div>
                             </div>
@@ -361,7 +361,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             <div className="relative">
                                 <input
                                     type="text" placeholder="CPF (Apenas números)"
-                                    className={`w-full p-4 border rounded-xl outline-none text-lg transition-all ${identificationStatus === 'known' ? 'border-green-500 bg-green-50 ring-1 ring-green-200' : 'border-gray-300 focus:border-green-500'
+                                    className={`w-full p-4 border rounded-lg outline-none text-lg transition-all ${identificationStatus === 'known' ? 'border-brand-deep bg-brand-lavender/20 ring-1 ring-brand-periwinkle' : 'border-gray-300 focus:border-brand-deep'
                                         }`}
                                     value={formData.cpf}
                                     onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
@@ -370,12 +370,12 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 />
                                 {identificationStatus === 'checking' && (
                                     <div className="absolute right-4 top-4">
-                                        <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+                                        <Loader2 className="w-6 h-6 animate-spin text-brand-deep" />
                                     </div>
                                 )}
                                 {identificationStatus === 'known' && (
                                     <div className="absolute right-4 top-4">
-                                        <CheckCircle className="w-6 h-6 text-green-600" />
+                                        <CheckCircle className="w-6 h-6 text-brand-deep" />
                                     </div>
                                 )}
                             </div>
@@ -389,14 +389,14 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             {/* Known User Flow */}
                             {identificationStatus === 'known' && (
                                 <div className="space-y-4 animate-fade-in-up">
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 px-4">
-                                        <p className="text-sm text-blue-800 font-semibold mb-1">Instituição Vinculada:</p>
+                                    <div className="bg-brand-lavender/20 p-4 rounded-lg border border-brand-periwinkle/20 px-4">
+                                        <p className="text-sm text-brand-ink font-semibold mb-1">Instituição Vinculada:</p>
                                         <p className="text-gray-800">{formData.contato_instituicao}</p>
                                     </div>
 
                                     <input
                                         type="password" placeholder="Sua Senha"
-                                        className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:border-green-500 transition-all"
+                                        className="w-full p-4 border border-brand-lavender/60 rounded-lg outline-none focus:border-brand-deep transition-all"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                         autoFocus
@@ -413,7 +413,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                         <div className="relative">
                                             <input
                                                 type="text" placeholder="CNPJ da Instituição"
-                                                className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:border-green-500"
+                                                className="w-full p-4 border border-brand-lavender/60 rounded-lg outline-none focus:border-brand-deep"
                                                 value={formData.cnpj}
                                                 onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
                                                 onBlur={handleBlurCnpj}
@@ -422,7 +422,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                         </div>
                                         <input
                                             type="text" placeholder="Nome da Instituição"
-                                            className="w-full p-4 border border-gray-100 bg-gray-50 rounded-xl outline-none text-gray-500"
+                                            className="w-full p-4 border border-brand-lavender/30 bg-gray-50 rounded-lg outline-none text-gray-500"
                                             value={formData.contato_instituicao}
                                             readOnly
                                         />
@@ -432,13 +432,13 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <input
                                             type="text" placeholder="WhatsApp"
-                                            className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:border-green-500"
+                                            className="w-full p-4 border border-brand-lavender/60 rounded-lg outline-none focus:border-brand-deep"
                                             value={formData.whatsapp}
                                             onChange={handlePhoneChange}
                                         />
                                         <input
                                             type="email" placeholder="E-mail"
-                                            className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:border-green-500"
+                                            className="w-full p-4 border border-brand-lavender/60 rounded-lg outline-none focus:border-brand-deep"
                                             value={formData.contato_email}
                                             onChange={(e) => setFormData({ ...formData, contato_email: e.target.value })}
                                         />
@@ -447,7 +447,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                     {/* Password */}
                                     <input
                                         type="password" placeholder="Criar Senha"
-                                        className="w-full p-4 border border-gray-300 rounded-xl outline-none focus:border-green-500"
+                                        className="w-full p-4 border border-brand-lavender/60 rounded-lg outline-none focus:border-brand-deep"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                     />
@@ -472,8 +472,8 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                         <button
                             onClick={handleNext}
                             disabled={loading}
-                            className={`px-8 py-3 rounded-full font-bold shadow-lg transform active:scale-95 transition-all flex items-center 
-                                ${step === 4 && identificationStatus !== 'listening' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-800 hover:bg-gray-900 text-white'}
+                            className={`px-8 py-3 rounded-lg font-bold shadow-lg transform active:scale-95 transition-all flex items-center 
+                                ${step === 4 && identificationStatus !== 'listening' ? 'bg-brand-deep hover:bg-brand-royal text-white' : 'bg-brand-ink hover:bg-brand-deep text-white'}
                             `}
                         >
                             {loading ? 'Processando...' : step === 4 ? (identificationStatus === 'known' ? 'Entrar e Publicar' : 'Cadastrar e Publicar') : 'Continuar'}

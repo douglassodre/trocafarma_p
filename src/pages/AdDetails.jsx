@@ -54,7 +54,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -81,12 +81,12 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
             </Helmet>
 
             <div className="max-w-3xl mx-auto">
-                <Link to="/explorar" className="inline-flex items-center text-slate-600 hover:text-indigo-600 mb-6 transition-colors">
+                <Link to="/explorar" className="inline-flex items-center text-slate-600 hover:text-brand-deep mb-6 transition-colors">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar para Explorar
                 </Link>
 
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+                <div className="bg-white rounded-lg shadow-xl overflow-hidden border border-brand-lavender/30">
                     {/* Image Header if available */}
                     {ad.foto_url && (
                         <div className="w-full h-64 sm:h-80 bg-slate-100 relative">
@@ -110,8 +110,8 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
                                 <div className="flex flex-wrap items-center gap-2">
                                     {!ad.foto_url && (
                                         <span className={`px-2.5 py-1 text-xs font-bold uppercase rounded-full
-                                            ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                                ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                            ${ad.tipo === 'DOACAO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
+                                                ad.tipo === 'EMPRESTIMO' ? 'bg-brand-lavender/30 text-brand-deep' :
                                                     'bg-orange-100 text-orange-700'}`}>
                                             {ad.tipo}
                                         </span>
@@ -122,7 +122,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
 
                             <Button
                                 onClick={handleWhatsAppShare}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
+                                className="bg-brand-deep hover:bg-brand-royal text-white gap-2 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
                             >
                                 <Share2 className="h-4 w-4" />
                                 Compartilhar no WhatsApp
@@ -134,8 +134,8 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
                                 <div>
                                     <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Instituição</h3>
                                     <div className="flex items-start gap-3">
-                                        <div className="bg-indigo-50 p-2 rounded-lg">
-                                            <Package className="h-6 w-6 text-indigo-600" />
+                                        <div className="bg-brand-lavender/20 p-2 rounded-lg">
+                                            <Package className="h-6 w-6 text-brand-deep" />
                                         </div>
                                         <div>
                                             <p className="font-medium text-slate-900 text-lg">{ad.instituicoes?.nome_fantasia || 'Nome Indisponível'}</p>
@@ -157,7 +157,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
 
                                 <div>
                                     <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Detalhes do Lote</h3>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                                    <div className="bg-brand-lavender/10 p-4 rounded-lg border border-brand-lavender/30 space-y-2">
                                         <div className="flex justify-between items-center py-1 border-b border-slate-200 last:border-0">
                                             <span className="text-slate-600">Quantidade</span>
                                             <span className="font-medium text-slate-900">{ad.quantidade || 'N/A'}</span>
@@ -175,7 +175,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
                             </div>
                         </div>
 
-                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex gap-3 text-blue-800 text-sm">
+                        <div className="p-4 bg-brand-lavender/20 border border-brand-periwinkle/20 rounded-lg flex gap-3 text-brand-ink text-sm">
                             <MessageCircle className="h-5 w-5 flex-shrink-0" />
                             <p>
                                 Para solicitar este item, acesse a página <strong>Explorar</strong>, encontre este anúncio e clique em "Tenho Interesse".

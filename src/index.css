@@ -4,33 +4,33 @@
 
 @layer base {
     :root {
-        --background: 210 40% 98%;
-        --foreground: 222.2 84% 4.9%;
+        --background: 235 48% 98%;
+        --foreground: 229 69% 13%;
 
         --card: 0 0% 100%;
-        --card-foreground: 222.2 84% 4.9%;
+        --card-foreground: 229 69% 13%;
 
         --popover: 0 0% 100%;
-        --popover-foreground: 222.2 84% 4.9%;
+        --popover-foreground: 229 69% 13%;
 
-        --primary: 221.2 83.2% 53.3%;
-        --primary-foreground: 210 40% 98%;
+        --primary: 225 70% 51%;
+        --primary-foreground: 0 0% 95%;
 
-        --secondary: 210 40% 96.1%;
-        --secondary-foreground: 222.2 47.4% 11.2%;
+        --secondary: 256 76% 81%;
+        --secondary-foreground: 229 69% 13%;
 
-        --muted: 210 40% 96.1%;
-        --muted-foreground: 215.4 16.3% 46.9%;
+        --muted: 235 67% 97%;
+        --muted-foreground: 228 18% 44%;
 
-        --accent: 210 40% 96.1%;
-        --accent-foreground: 222.2 47.4% 11.2%;
+        --accent: 231 79% 72%;
+        --accent-foreground: 229 69% 13%;
 
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 210 40% 98%;
 
-        --border: 214.3 31.8% 91.4%;
-        --input: 214.3 31.8% 91.4%;
-        --ring: 221.2 83.2% 53.3%;
+        --border: 234 52% 90%;
+        --input: 234 52% 90%;
+        --ring: 225 70% 51%;
 
         --radius: 0.5rem;
     }
@@ -74,6 +74,8 @@
     body {
         @apply bg-background text-foreground;
         font-family: 'Inter', sans-serif;
+        background:
+            linear-gradient(135deg, rgba(242, 242, 242, 0.95) 0%, rgba(247, 248, 255, 0.96) 48%, rgba(194, 172, 242, 0.16) 100%);
     }
 }
 

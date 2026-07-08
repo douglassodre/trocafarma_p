@@ -37,7 +37,7 @@ const Financial = () => {
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -59,7 +59,7 @@ const Financial = () => {
             case 'paid':
                 return { color: 'text-green-600 bg-green-100', label: 'Pago', icon: <CheckCircle className="h-4 w-4" /> }
             case 'open':
-                return { color: 'text-blue-600 bg-blue-100', label: 'Aberto', icon: <AlertCircle className="h-4 w-4" /> }
+                return { color: 'text-brand-deep bg-brand-periwinkle/20', label: 'Aberto', icon: <AlertCircle className="h-4 w-4" /> }
             case 'void':
                 return { color: 'text-gray-600 bg-gray-100', label: 'Cancelado', icon: <FileText className="h-4 w-4" /> }
             case 'uncollectible':
@@ -74,7 +74,7 @@ const Financial = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <DollarSign className="h-8 w-8 text-indigo-600" />
+                        <DollarSign className="h-8 w-8 text-brand-deep" />
                         Financeiro
                     </h1>
                     <Button onClick={fetchFinancialData} variant="outline" className="gap-2">
@@ -89,8 +89,8 @@ const Financial = () => {
                             <h2 className="text-lg font-semibold text-slate-700 mb-1">Evolução do Mês (Fatura Atual)</h2>
                             <p className="text-slate-500 text-sm">Gastos acumulados para o próximo fechamento.</p>
                         </div>
-                        <div className="bg-indigo-50 p-2 rounded-lg">
-                            <Clock className="h-6 w-6 text-indigo-600" />
+                        <div className="bg-brand-lavender/20 p-2 rounded-lg">
+                            <Clock className="h-6 w-6 text-brand-deep" />
                         </div>
                     </div>
 
@@ -159,7 +159,7 @@ const Financial = () => {
                                                                 href={invoice.hosted_invoice_url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-medium rounded text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                                className="inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-medium rounded text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-periwinkle"
                                                             >
                                                                 <ExternalLink className="h-3 w-3 mr-1" />
                                                                 Visualizar
@@ -170,7 +170,7 @@ const Financial = () => {
                                                                 href={invoice.invoice_pdf}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                                className="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-brand-deep hover:bg-brand-royal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-periwinkle"
                                                             >
                                                                 <Download className="h-3 w-3 mr-1" />
                                                                 PDF

@@ -147,8 +147,8 @@ const MyRequests = () => {
             'APROVADO': 'bg-green-100 text-green-800',
             'RECUSADO': 'bg-red-100 text-red-800',
             'CONCLUIDO': 'bg-slate-100 text-slate-800',
-            'EM_TRANSITO': 'bg-blue-100 text-blue-800',
-            'EM_ANDAMENTO': 'bg-blue-50 text-blue-700'
+            'EM_TRANSITO': 'bg-brand-periwinkle/20 text-brand-ink',
+            'EM_ANDAMENTO': 'bg-brand-lavender/20 text-brand-royal'
         }
         return <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100'}`}>{status === 'PENDENTE' ? 'AGUARDANDO SEU ACEITE' : status}</span>
     }
@@ -203,7 +203,7 @@ const MyRequests = () => {
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -217,7 +217,7 @@ const MyRequests = () => {
 
         if (diffDays < 0) return { status: 'OVERDUE', days: Math.abs(diffDays), label: `Atrasado há ${Math.abs(diffDays)} dias`, color: 'text-red-700 bg-red-50 border-red-200' }
         if (diffDays <= 3) return { status: 'WARNING', days: diffDays, label: `Devolução em ${diffDays} dias`, color: 'text-orange-700 bg-orange-50 border-orange-200' }
-        return { status: 'OK', days: diffDays, label: `Devolução até ${deadline.toLocaleDateString()}`, color: 'text-blue-700 bg-blue-50 border-blue-200' }
+        return { status: 'OK', days: diffDays, label: `Devolução até ${deadline.toLocaleDateString()}`, color: 'text-brand-royal bg-brand-lavender/20 border-brand-periwinkle/40' }
     }
 
     return (
@@ -236,7 +236,7 @@ const MyRequests = () => {
                         <h3 className="text-xl font-medium text-slate-900">Nenhuma solicitação ainda</h3>
                         <p className="text-slate-500 mb-6">Explore o catálogo e solicite itens que sua instituição precisa.</p>
                         <Link to="/explorar">
-                            <Button className="bg-indigo-600 hover:bg-indigo-700">Explorar Itens</Button>
+                            <Button className="bg-brand-deep hover:bg-brand-royal">Explorar Itens</Button>
                         </Link>
                     </div>
                 ) : (
@@ -461,7 +461,7 @@ const MyRequests = () => {
                                     )}
                                     {selectedRequest.status !== 'PENDENTE' && selectedRequest.status !== 'SOLICITADO' && (
                                         <Button
-                                            className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700"
+                                            className="flex-1 gap-2 bg-brand-deep hover:bg-brand-royal"
                                             onClick={() => generateReceiptPDF(selectedRequest.anuncios, user)} // Uses the ad data for now as per logic
                                         >
                                             <Download className="h-4 w-4" />

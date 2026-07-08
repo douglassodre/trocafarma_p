@@ -94,7 +94,7 @@ const ManageUsers = () => {
                                     <div className="text-sm text-slate-500">{user.email}</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'UNIDADE_ADM' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'UNIDADE_ADM' ? 'bg-brand-lavender/30 text-brand-ink' : 'bg-brand-periwinkle/20 text-brand-ink'}`}>
                                         {user.role === 'UNIDADE_ADM' ? 'ADM' : 'Operador'}
                                     </span>
                                 </td>
@@ -106,7 +106,7 @@ const ManageUsers = () => {
                                                     type="checkbox"
                                                     checked={user.pode_doar ?? true}
                                                     onChange={() => togglePermission(user.id, 'pode_doar', user.pode_doar ?? true)}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="rounded border-gray-300 text-brand-deep focus:ring-brand-periwinkle"
                                                 />
                                                 <span>Doar</span>
                                             </label>
@@ -115,7 +115,7 @@ const ManageUsers = () => {
                                                     type="checkbox"
                                                     checked={user.pode_emprestar ?? true}
                                                     onChange={() => togglePermission(user.id, 'pode_emprestar', user.pode_emprestar ?? true)}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="rounded border-gray-300 text-brand-deep focus:ring-brand-periwinkle"
                                                 />
                                                 <span>Emprestar</span>
                                             </label>
@@ -124,7 +124,7 @@ const ManageUsers = () => {
                                                     type="checkbox"
                                                     checked={user.pode_permutar ?? true}
                                                     onChange={() => togglePermission(user.id, 'pode_permutar', user.pode_permutar ?? true)}
-                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="rounded border-gray-300 text-brand-deep focus:ring-brand-periwinkle"
                                                 />
                                                 <span>Permutar</span>
                                             </label>

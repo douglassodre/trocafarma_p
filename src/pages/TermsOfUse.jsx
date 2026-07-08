@@ -2,27 +2,26 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck, FileText, Scale } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const TermsOfUse = () => {
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+        <div className="min-h-screen bg-brand-mist font-sans text-brand-ink">
             <Helmet>
                 <title>Termos de Uso | Trocafarma</title>
                 <meta name="description" content="Termos de uso e condições legais da plataforma Trocafarma." />
             </Helmet>
 
             {/* Header */}
-            <header className="bg-white shadow-sm sticky top-0 z-50">
+            <header className="bg-white shadow-sm border-b border-brand-lavender/30 sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <Link to="/" className="flex items-center space-x-2 group">
-                            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center group-hover:bg-green-700 transition-colors">
-                                <span className="text-white font-bold text-xl">T</span>
-                            </div>
-                            <span className="text-xl font-bold tracking-tight text-gray-800 group-hover:text-green-800 transition-colors">Trocafarma</span>
+                            <img src={logo} alt="Trocafarma" className="h-9 w-9 object-contain" />
+                            <span className="text-xl font-bold tracking-tight text-brand-ink group-hover:text-brand-deep transition-colors">Trocafarma</span>
                         </Link>
                     </div>
-                    <Link to="/" className="text-sm font-medium text-gray-600 hover:text-green-600 flex items-center transition-colors">
+                    <Link to="/" className="text-sm font-medium text-gray-600 hover:text-brand-deep flex items-center transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-1" />
                         Voltar para o Início
                     </Link>
@@ -30,15 +29,15 @@ const TermsOfUse = () => {
             </header>
 
             <main className="max-w-4xl mx-auto px-6 py-12">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-12">
+                <div className="bg-white rounded-lg shadow-sm border border-brand-lavender/30 p-8 md:p-12">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Termos de Uso</h1>
                     <p className="text-gray-500 mb-8">Última atualização: {new Date().toLocaleDateString('pt-BR')}</p>
 
-                    <div className="prose prose-green max-w-none space-y-8">
+                    <div className="prose max-w-none space-y-8">
 
                         {/* Introdução */}
                         <section>
-                            <h2 className="text-xl font-bold flex items-center mb-4 text-green-800">
+                            <h2 className="text-xl font-bold flex items-center mb-4 text-brand-deep">
                                 <FileText className="w-5 h-5 mr-2" />
                                 1. Introdução
                             </h2>
@@ -49,8 +48,8 @@ const TermsOfUse = () => {
                         </section>
 
                         {/* Base Legal */}
-                        <section className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                            <h2 className="text-xl font-bold flex items-center mb-4 text-blue-800">
+                        <section className="bg-brand-lavender/20 p-6 rounded-lg border border-brand-periwinkle/20">
+                            <h2 className="text-xl font-bold flex items-center mb-4 text-brand-ink">
                                 <Scale className="w-5 h-5 mr-2" />
                                 2. Base Legal e Conformidade
                             </h2>
@@ -68,14 +67,14 @@ const TermsOfUse = () => {
                                     <strong>Lei Federal nº 14.654/2023:</strong> Que obriga a divulgação dos estoques de medicamentos das farmácias que compõem o SUS, promovendo a transparência.
                                 </li>
                             </ul>
-                            <p className="mt-4 text-sm italic text-blue-700">
+                            <p className="mt-4 text-sm italic text-brand-royal">
                                 * É responsabilidade de cada instituição usuária verificar a conformidade com as leis estaduais e municipais específicas de sua região.
                             </p>
                         </section>
 
                         {/* Responsabilidades */}
                         <section>
-                            <h2 className="text-xl font-bold flex items-center mb-4 text-green-800">
+                            <h2 className="text-xl font-bold flex items-center mb-4 text-brand-deep">
                                 <ShieldCheck className="w-5 h-5 mr-2" />
                                 3. Responsabilidades das Instituições
                             </h2>
@@ -102,7 +101,7 @@ const TermsOfUse = () => {
                         <section>
                             <h2 className="text-xl font-bold text-gray-800 mb-3">5. Contato e Suporte</h2>
                             <p>
-                                Para dúvidas legais ou operacionais, entre em contato através do e-mail: <a href="mailto:contato@trocafarma.com" className="text-green-600 font-bold hover:underline">contato@trocafarma.com</a>.
+                                Para dúvidas legais ou operacionais, entre em contato através do e-mail: <a href="mailto:contato@trocafarma.com" className="text-brand-deep font-bold hover:underline">contato@trocafarma.com</a>.
                             </p>
                         </section>
                     </div>

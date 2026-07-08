@@ -395,7 +395,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
                                                     <h4 className="text-purple-800 font-semibold flex items-center gap-2 mb-2">
                                                         <Calendar className="h-4 w-4" />
-                                                        Prazo de Devolução
+                                                        Previsão de Devolução
                                                     </h4>
                                                     <p className="text-purple-700">{new Date(selectedAd.prazo_devolucao).toLocaleDateString()}</p>
                                                 </div>

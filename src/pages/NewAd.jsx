@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
 import logoImageUrl from '../assets/logo.png'
 import {
-    ArrowLeft, MapPin, Search, Calendar,
-    Package, FileText, Camera, Save, X, Type,
-    RefreshCw, Share2, Tag, AlertTriangle, CheckCircle, XCircle
+    ArrowLeft, MapPin, Calendar,
+    Package, FileText, Camera, Save,
+    Tag, AlertTriangle, CheckCircle, XCircle, Plus, Trash2
 } from 'lucide-react'
 import Autocomplete from '../components/Autocomplete'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card'
@@ -15,6 +15,62 @@ import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
+
+const MAX_BULK_ITEMS = 20
+const DEFAULT_COMMON_DATA = {
+    type: 'DOACAO',
+    logistics: 'RETIRADA',
+    returnDate: '',
+    exchangeItems: '',
+    cidade: '',
+    estado: ''
+}
+
+const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function createDraftId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+    }
+
+    return `item_${Date.now()}_${Math.random().toString(36).slice(2)}`
+}
+
+function createEmptyItem(overrides = {}) {
+    return {
+        id: createDraftId(),
+        itemCode: '',
+        description: '',
+        category: '',
+        quantity: '',
+        unitPrice: '',
+        batch: '',
+        expirationDate: '',
+        photos: '',
+        previewUrl: null,
+        previewReady: false,
+        previewError: '',
+        previewApproved: false,
+        uploadingImage: false,
+        ...overrides
+    }
+}
+
+function mergeForStatus(item, commonData) {
+    return {
+        ...item,
+        type: commonData.type,
+        logistics: commonData.logistics,
+        returnDate: commonData.returnDate,
+        exchangeItems: commonData.exchangeItems,
+        cidade: commonData.cidade,
+        estado: commonData.estado
+    }
+}
+
+function isBlobUrl(value) {
+    return typeof value === 'string' && value.startsWith('blob:')
+}
 
 async function notifyStatusBot({ filePath, caption }) {
     try {
@@ -281,175 +337,379 @@ async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
     return canvas
 }
 
-const NewAd = () => {
-    const { user, userProfile } = useAuth()
-    const navigate = useNavigate()
-    const location = useLocation()
-    const statusPreviewCanvasRef = useRef(null)
-
-    const [loading, setLoading] = useState(false)
-    const [blockingCheckLoading, setBlockingCheckLoading] = useState(true)
-    const [isBlocked, setIsBlocked] = useState(false)
-    const [msgBlocked, setMsgBlocked] = useState('')
-
-    // Location State
-    const [locationLoading, setLocationLoading] = useState(false)
-    const [locationError, setLocationError] = useState('')
-
-    // Form State
-    const [formData, setFormData] = useState({
-        itemCode: '',
-        description: '',
-        category: '', // New field
-        quantity: '', // New quantity field
-        unitPrice: '', // New unit price field
-        batch: '',
-        expirationDate: '',
-        type: 'DOACAO', // DOACAO, EMPRESTIMO, PERMUTA
-        logistics: 'RETIRADA', // RETIRADA, ENTREGA, COMBINAR
-        returnDate: '',
-        exchangeItems: '',
-        photos: '', // URL or just text for now? Assuming text/url for simplicity or file upload later.
-        cidade: '',
-        estado: ''
-    })
-
-    // Logic State
-    const [, setSaveToCatalog] = useState(false)
-    const [feedback, setFeedback] = useState('')
-    const [isEditMode, setIsEditMode] = useState(false)
-    const [editingId, setEditingId] = useState(null)
-
-    // Image Upload State
-    const [previewUrl, setPreviewUrl] = useState(null)
-    const [uploadingImage, setUploadingImage] = useState(false)
-    const [previewReady, setPreviewReady] = useState(false)
-    const [previewError, setPreviewError] = useState('')
-    const [previewApproved, setPreviewApproved] = useState(false)
-
-    // 1. Verificação de Bloqueio & Auth & Geolocation & Edit Mode
-    useEffect(() => {
-        if (!user) {
-            setBlockingCheckLoading(false) // Ensure loading is set to false even if no user
-            navigate('/signin')
-            return
-        }
-
-        // Check for Edit Mode
-        if (location.state?.adToEdit) {
-            const ad = location.state.adToEdit
-            setFormData({
-                itemCode: ad.item_codigo || '',
-                description: ad.descricao_customizada || '',
-                category: ad.categoria || 'MEDICAMENTO', // Default if missing
-                quantity: ad.quantidade || '',
-                unitPrice: ad.preco_unitario || '',
-                batch: ad.lote || '',
-                expirationDate: ad.data_vencimento || '',
-                type: ad.tipo || 'DOACAO',
-                logistics: ad.logistica || 'RETIRADA',
-                returnDate: ad.prazo_devolucao || '',
-                exchangeItems: ad.itens_desejados_troca || '',
-                photos: '', // We don't populate the file input, but we could show the existing URL
-                cidade: ad.cidade || '',
-                estado: ad.estado || ''
-            })
-            if (ad.foto_url) {
-                setPreviewUrl(ad.foto_url)
-            }
-            setIsEditMode(true)
-            setEditingId(ad.id)
-
-            // If editing, we assume city/state are already there, but we could still fetch if missing.
-            // For now, let's respect the existing data.
-            if (!ad.cidade) getLocation()
-        } else {
-            getLocation()
-        }
-
-        const checkBlocking = async () => {
-            const today = new Date().toISOString().split('T')[0]
-
-            try {
-                // Check for overdue returns
-                const { data, error } = await supabase
-                    .from('transacoes')
-                    .select('id')
-                    .eq('usuario_id', user.id)
-                    .is('data_devolucao_real', null)
-                    .lt('data_devolucao_prevista', today)
-
-                if (error) {
-                    console.error('Error checking blocking status:', error)
-                } else if (data && data.length > 0) {
-                    setIsBlocked(true)
-                    setMsgBlocked('Você possui pendências de devolução e não pode anunciar novos itens.')
-                }
-            } catch (err) {
-                console.error(err)
-            } finally {
-                setBlockingCheckLoading(false)
-            }
-        }
-
-        checkBlocking()
-    }, [user, navigate, location.state])
+function AdItemFields({
+    item,
+    index,
+    totalItems,
+    isEditMode,
+    commonData,
+    onSearch,
+    onSelect,
+    onFieldChange,
+    onImageChange,
+    onRemove,
+    onPreviewChange,
+    setCanvasRef
+}) {
+    const canvasRef = useRef(null)
+    const { id, previewUrl, description, expirationDate, batch, quantity, unitPrice } = item
+    const { type, logistics, cidade, estado } = commonData
+    const previewData = mergeForStatus(item, commonData)
+    const fileInputId = `file-upload-${id}`
 
     useEffect(() => {
-        setPreviewApproved(false)
-    }, [
-        formData.description,
-        formData.expirationDate,
-        formData.batch,
-        formData.quantity,
-        formData.type,
-        formData.logistics,
-        formData.cidade,
-        formData.estado,
-        previewUrl,
-    ])
+        setCanvasRef(id, canvasRef.current)
+        return () => setCanvasRef(id, null)
+    }, [id, setCanvasRef])
 
     useEffect(() => {
         let cancelled = false
 
-        if (!previewUrl || !statusPreviewCanvasRef.current) {
-            setPreviewReady(false)
-            setPreviewError('')
+        if (!previewUrl || !canvasRef.current) {
+            onPreviewChange(id, { previewReady: false, previewError: '' })
             return undefined
         }
 
-        setPreviewReady(false)
-        setPreviewError('')
+        onPreviewChange(id, { previewReady: false, previewError: '' })
 
-        drawStatusTemplatePreview(statusPreviewCanvasRef.current, {
+        drawStatusTemplatePreview(canvasRef.current, {
             imageSrc: previewUrl,
-            formData,
+            formData: {
+                description,
+                expirationDate,
+                batch,
+                quantity,
+                type,
+                logistics,
+                cidade,
+                estado
+            },
         }).then(() => {
-            if (!cancelled) setPreviewReady(true)
+            if (!cancelled) onPreviewChange(id, { previewReady: true })
         }).catch((err) => {
             console.error('Erro ao montar preview do status:', err)
             if (!cancelled) {
-                setPreviewError('Nao foi possivel montar a previa da imagem.')
-                setPreviewReady(false)
+                onPreviewChange(id, {
+                    previewError: 'Nao foi possivel montar a previa da imagem.',
+                    previewReady: false
+                })
             }
         })
 
         return () => {
             cancelled = true
         }
-    }, [previewUrl, formData])
+    }, [
+        id,
+        previewUrl,
+        description,
+        expirationDate,
+        batch,
+        quantity,
+        type,
+        logistics,
+        cidade,
+        estado,
+        onPreviewChange
+    ])
 
-    useEffect(() => {
-        return () => {
-            if (previewUrl?.startsWith('blob:')) {
-                URL.revokeObjectURL(previewUrl)
-            }
-        }
-    }, [previewUrl])
+    return (
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h3 className="text-base font-semibold text-slate-900">Item {index + 1}</h3>
+                    <p className="text-sm text-slate-500">Dados especificos deste medicamento.</p>
+                </div>
+                {!isEditMode && totalItems > 1 && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-red-600 hover:text-red-700"
+                        onClick={() => onRemove(id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        Remover
+                    </Button>
+                )}
+            </div>
 
-    const getLocation = () => {
+            <div className="space-y-6">
+                <div>
+                    <Label className="mb-2 block">Busca de Medicamento</Label>
+                    <Autocomplete
+                        onSearch={onSearch}
+                        onSelect={(selectedItem) => onSelect(id, selectedItem)}
+                        placeholder="Digite o nome do medicamento (minimo 3 letras)..."
+                        initialValue={description}
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Digite pelo menos 3 caracteres para buscar na base oficial.</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                        <Label className="mb-2 block">Descricao Oficial</Label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <FileText className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <Input
+                                type="text"
+                                name="description"
+                                value={description}
+                                readOnly
+                                disabled
+                                className="cursor-not-allowed bg-slate-100 pl-10 text-slate-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label className="mb-2 block">Categoria</Label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <Tag className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <Input
+                                type="text"
+                                name="category"
+                                value={item.category}
+                                readOnly
+                                disabled
+                                className="cursor-not-allowed bg-slate-100 pl-10 text-slate-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    <div>
+                        <Label className="mb-2 block">Quantidade</Label>
+                        <Input
+                            type="number"
+                            name="quantity"
+                            value={quantity}
+                            onChange={(event) => onFieldChange(id, event)}
+                            required
+                            min="1"
+                            placeholder="Qtd"
+                        />
+                    </div>
+
+                    <div>
+                        <Label className="mb-2 block">Lote</Label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <Package className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <Input
+                                type="text"
+                                name="batch"
+                                value={batch}
+                                onChange={(event) => onFieldChange(id, event)}
+                                required
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label className="mb-2 block">Data de Vencimento</Label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <Calendar className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <Input
+                                type="date"
+                                name="expirationDate"
+                                value={expirationDate}
+                                onChange={(event) => onFieldChange(id, event)}
+                                required
+                                min={new Date().toISOString().split('T')[0]}
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-5">
+                    <h4 className="mb-4 flex items-center text-sm font-semibold text-emerald-800">
+                        <Tag className="mr-2 h-4 w-4" />
+                        Valor e Impacto
+                    </h4>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <Label className="mb-2 block text-emerald-900">Preco Unitario (R$)</Label>
+                            <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span className="font-bold text-emerald-600">R$</span>
+                                </div>
+                                <Input
+                                    type="number"
+                                    name="unitPrice"
+                                    value={unitPrice}
+                                    onChange={(event) => onFieldChange(id, event)}
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0,00"
+                                    className="border-emerald-200 pl-10 focus:ring-emerald-500"
+                                />
+                            </div>
+                            <p className="mt-1 text-xs text-emerald-700">Defina o valor de mercado para calcular a economia gerada.</p>
+                        </div>
+                        <div className="flex flex-col justify-center rounded-lg border border-emerald-100 bg-white p-4">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Valor Total do Estoque</span>
+                            <span className="text-2xl font-bold text-emerald-900">
+                                {currencyFormatter.format((parseFloat(unitPrice) || 0) * (parseFloat(quantity) || 0))}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <Label className="mb-2 block">Foto do Item</Label>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                        <div className="flex flex-col items-center">
+                            <div className="relative mb-4 flex h-64 w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-200">
+                                {previewUrl ? (
+                                    <img
+                                        src={previewUrl}
+                                        alt="Previa"
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="text-center text-slate-400">
+                                        <Camera className="mx-auto mb-2 h-12 w-12" />
+                                        <span className="text-sm">Nenhuma foto selecionada</span>
+                                    </div>
+                                )}
+                                {item.uploadingImage && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 font-semibold text-white">
+                                        Enviando...
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="relative w-full max-w-sm">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(event) => onImageChange(id, event)}
+                                    className="hidden"
+                                    id={fileInputId}
+                                />
+                                <label
+                                    htmlFor={fileInputId}
+                                    className="flex w-full cursor-pointer items-center justify-center space-x-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-700 shadow-sm transition hover:bg-slate-50"
+                                >
+                                    <Camera className="h-4 w-4" />
+                                    <span>{previewUrl ? 'Trocar Foto' : 'Adicionar Foto'}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <Label className="mb-2 block">Previa do WhatsApp</Label>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                        {previewUrl ? (
+                            <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                                <canvas
+                                    ref={canvasRef}
+                                    width={1080}
+                                    height={1350}
+                                    className="block aspect-[4/5] w-full bg-white"
+                                    aria-label="Previa visual do post no WhatsApp"
+                                />
+                                {(!item.previewReady || item.uploadingImage) && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm font-semibold text-slate-700">
+                                        {item.uploadingImage ? 'Enviando preview...' : 'Montando preview...'}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="mx-auto w-full max-w-md rounded-xl bg-[#efeae2] p-4">
+                                <div className="ml-auto max-w-[92%] whitespace-pre-line rounded-lg bg-[#d9fdd3] p-3 text-sm leading-relaxed text-slate-900 shadow-sm">
+                                    {buildStatusCaption(previewData)}
+                                </div>
+                            </div>
+                        )}
+
+                        {item.previewError && (
+                            <p className="mt-3 text-sm text-red-600">{item.previewError}</p>
+                        )}
+
+                        <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={item.previewApproved}
+                                onChange={(event) => onPreviewChange(id, { previewApproved: event.target.checked })}
+                                className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-deep"
+                            />
+                            <span>Aprovo esta previa para postagem no WhatsApp.</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
+const NewAd = () => {
+    const { user, userProfile } = useAuth()
+    const navigate = useNavigate()
+    const location = useLocation()
+    const itemCanvasRefs = useRef({})
+    const blobUrlsRef = useRef(new Set())
+
+    const [loading, setLoading] = useState(false)
+    const [blockingCheckLoading, setBlockingCheckLoading] = useState(true)
+    const [isBlocked, setIsBlocked] = useState(false)
+    const [msgBlocked, setMsgBlocked] = useState('')
+    const [locationLoading, setLocationLoading] = useState(false)
+    const [locationError, setLocationError] = useState('')
+    const [commonData, setCommonData] = useState(DEFAULT_COMMON_DATA)
+    const [items, setItems] = useState([createEmptyItem()])
+    const [, setSaveToCatalog] = useState(false)
+    const [feedback, setFeedback] = useState('')
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [editingId, setEditingId] = useState(null)
+
+    const updateItem = useCallback((itemId, changes, options = {}) => {
+        const resetApproval = options.resetApproval !== false
+
+        setItems(prevItems => prevItems.map(item => (
+            item.id === itemId
+                ? {
+                    ...item,
+                    ...changes,
+                    ...(resetApproval ? { previewApproved: false } : {})
+                }
+                : item
+        )))
+    }, [])
+
+    const setItemPreviewState = useCallback((itemId, changes) => {
+        updateItem(itemId, changes, { resetApproval: false })
+    }, [updateItem])
+
+    const setItemCanvasRef = useCallback((itemId, node) => {
+        if (node) itemCanvasRefs.current[itemId] = node
+        else delete itemCanvasRefs.current[itemId]
+    }, [])
+
+    const canCreateType = useCallback((type) => {
+        if (userProfile?.role === 'UNIDADE_ADM') return true
+        if (type === 'DOACAO') return userProfile?.pode_doar !== false
+        if (type === 'EMPRESTIMO') return userProfile?.pode_emprestar !== false
+        if (type === 'PERMUTA') return userProfile?.pode_permutar !== false
+        return false
+    }, [userProfile])
+
+    const getLocation = useCallback(() => {
         if (!navigator.geolocation) {
-            setLocationError('Geolocalização não é suportada pelo seu navegador.')
+            setLocationError('Geolocalizacao nao e suportada pelo seu navegador.')
             return
         }
 
@@ -465,43 +725,116 @@ const NewAd = () => {
                         const city = data.address.city || data.address.town || data.address.village || data.address.municipality || ''
                         const state = data.address.state || ''
 
-                        setFormData(prev => ({ ...prev, cidade: city, estado: state }))
+                        setCommonData(prev => ({ ...prev, cidade: city, estado: state }))
                     } else {
-                        setLocationError('Não foi possível determinar a cidade.')
+                        setLocationError('Nao foi possivel determinar a cidade.')
                     }
                 } catch (error) {
                     console.error('Error fetching address:', error)
-                    setLocationError('Erro ao buscar endereço.')
+                    setLocationError('Erro ao buscar endereco.')
                 } finally {
                     setLocationLoading(false)
                 }
             },
             (error) => {
                 console.error('Geolocation error:', error)
-                let msg = 'Erro ao obter localização.'
-                if (error.code === error.PERMISSION_DENIED) msg = 'Permissão de localização negada.'
+                let msg = 'Erro ao obter localizacao.'
+                if (error.code === error.PERMISSION_DENIED) msg = 'Permissao de localizacao negada.'
                 setLocationError(msg)
                 setLocationLoading(false)
             }
         )
-    }
+    }, [])
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value })
-    }
+    useEffect(() => {
+        const blobUrls = blobUrlsRef.current
 
-    const handleImageChange = (e) => {
-        const file = e.target.files[0]
-        if (file) {
-            const objectUrl = URL.createObjectURL(file)
-            setPreviewUrl(objectUrl)
+        return () => {
+            blobUrls.forEach((url) => URL.revokeObjectURL(url))
+            blobUrls.clear()
         }
-    }
+    }, [])
 
-    // Wrapper for Autocomplete
-    const handleSearch = async (query) => {
+    useEffect(() => {
+        if (!user) {
+            setBlockingCheckLoading(false)
+            navigate('/signin')
+            return
+        }
+
+        const adToEdit = location.state?.adToEdit
+
+        if (adToEdit) {
+            setCommonData({
+                type: adToEdit.tipo || 'DOACAO',
+                logistics: adToEdit.logistica || 'RETIRADA',
+                returnDate: adToEdit.prazo_devolucao || '',
+                exchangeItems: adToEdit.itens_desejados_troca || '',
+                cidade: adToEdit.cidade || '',
+                estado: adToEdit.estado || ''
+            })
+            setItems([createEmptyItem({
+                id: `edit_${adToEdit.id}`,
+                itemCode: adToEdit.item_codigo || '',
+                description: adToEdit.descricao_customizada || '',
+                category: adToEdit.categoria || 'MEDICAMENTO',
+                quantity: adToEdit.quantidade || '',
+                unitPrice: adToEdit.preco_unitario || '',
+                batch: adToEdit.lote || '',
+                expirationDate: adToEdit.data_vencimento || '',
+                previewUrl: adToEdit.foto_url || null
+            })])
+            setIsEditMode(true)
+            setEditingId(adToEdit.id)
+
+            if (!adToEdit.cidade) getLocation()
+        } else {
+            setCommonData(DEFAULT_COMMON_DATA)
+            setItems([createEmptyItem()])
+            setIsEditMode(false)
+            setEditingId(null)
+            getLocation()
+        }
+
+        const checkBlocking = async () => {
+            const today = new Date().toISOString().split('T')[0]
+
+            try {
+                const { data, error } = await supabase
+                    .from('transacoes')
+                    .select('id')
+                    .eq('usuario_id', user.id)
+                    .is('data_devolucao_real', null)
+                    .lt('data_devolucao_prevista', today)
+
+                if (error) {
+                    console.error('Error checking blocking status:', error)
+                } else if (data && data.length > 0) {
+                    setIsBlocked(true)
+                    setMsgBlocked('Voce possui pendencias de devolucao e nao pode anunciar novos itens.')
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setBlockingCheckLoading(false)
+            }
+        }
+
+        checkBlocking()
+    }, [user, navigate, location.state, getLocation])
+
+    useEffect(() => {
+        if (!userProfile || canCreateType(commonData.type)) return
+
+        const fallbackType = ['DOACAO', 'EMPRESTIMO', 'PERMUTA'].find(canCreateType)
+        if (!fallbackType) return
+
+        setCommonData(prev => ({ ...prev, type: fallbackType }))
+        setItems(prevItems => prevItems.map(item => ({ ...item, previewApproved: false })))
+    }, [userProfile, commonData.type, canCreateType])
+
+    const handleSearch = useCallback(async (query) => {
         try {
-            // apiService now searches internally in catalogo_itens
             const result = await apiService.searchMedication(query)
             if (result && result.content) {
                 return result.content.map(item => ({
@@ -515,211 +848,323 @@ const NewAd = () => {
             console.error('Search error:', error)
             return []
         }
+    }, [])
+
+    const handleCommonChange = (event) => {
+        const { name, value } = event.target
+
+        setCommonData(prev => ({ ...prev, [name]: value }))
+
+        if (['type', 'logistics', 'cidade', 'estado'].includes(name)) {
+            setItems(prevItems => prevItems.map(item => ({ ...item, previewApproved: false })))
+        }
     }
 
-    const handleSelect = (item) => {
-        if (!item) {
-            // Clear fields if selection is cleared
-            setFormData(prev => ({ ...prev, description: '', itemCode: '', category: '' }))
+    const handleItemFieldChange = useCallback((itemId, event) => {
+        const { name, value } = event.target
+        updateItem(itemId, { [name]: value })
+    }, [updateItem])
+
+    const handleItemSelect = useCallback((itemId, selectedItem) => {
+        if (!selectedItem) {
+            updateItem(itemId, { description: '', itemCode: '', category: '' })
             return
         }
 
-        const med = item.value
-        setFormData(prev => ({
-            ...prev,
+        const med = selectedItem.value
+        updateItem(itemId, {
             description: med.nomeProduto,
             itemCode: med.numProcesso,
-            category: 'MEDICAMENTO' // Auto-fill category
-        }))
+            category: 'MEDICAMENTO'
+        })
         setSaveToCatalog(true)
         setFeedback('Item selecionado com sucesso.')
+    }, [updateItem])
+
+    const handleImageChange = useCallback((itemId, event) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        const existingItem = items.find(item => item.id === itemId)
+        if (isBlobUrl(existingItem?.previewUrl)) {
+            URL.revokeObjectURL(existingItem.previewUrl)
+            blobUrlsRef.current.delete(existingItem.previewUrl)
+        }
+
+        const objectUrl = URL.createObjectURL(file)
+        blobUrlsRef.current.add(objectUrl)
+        updateItem(itemId, {
+            previewUrl: objectUrl,
+            previewReady: false,
+            previewError: ''
+        })
+    }, [items, updateItem])
+
+    const handleAddItem = () => {
+        setItems(prevItems => {
+            if (prevItems.length >= MAX_BULK_ITEMS) {
+                setFeedback(`Limite de ${MAX_BULK_ITEMS} itens por envio atingido.`)
+                return prevItems
+            }
+
+            return [...prevItems, createEmptyItem()]
+        })
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault()
+    const handleRemoveItem = (itemId) => {
+        setItems(prevItems => {
+            if (prevItems.length <= 1) return prevItems
+
+            const itemToRemove = prevItems.find(item => item.id === itemId)
+            if (isBlobUrl(itemToRemove?.previewUrl)) {
+                URL.revokeObjectURL(itemToRemove.previewUrl)
+                blobUrlsRef.current.delete(itemToRemove.previewUrl)
+            }
+            delete itemCanvasRefs.current[itemId]
+
+            return prevItems.filter(item => item.id !== itemId)
+        })
+    }
+
+    const buildPayload = ({ item, finalPhotoUrl, statusInicial, expirationDateObj }) => {
+        const unitPrice = parseFloat(item.unitPrice) || 0
+        const quantityForTotal = parseFloat(item.quantity) || 0
+
+        return {
+            usuario_id: user.id,
+            instituicao_id: userProfile.instituicao_id,
+            item_codigo: item.itemCode,
+            descricao_customizada: item.description,
+            quantidade: item.quantity,
+            preco_unitario: unitPrice,
+            valor_total_estoque: unitPrice * quantityForTotal,
+            lote: item.batch,
+            data_vencimento: item.expirationDate,
+            tipo: commonData.type,
+            prazo_devolucao: commonData.type === 'EMPRESTIMO' ? commonData.returnDate : null,
+            itens_desejados_troca: commonData.type === 'PERMUTA' ? commonData.exchangeItems : null,
+            logistica: commonData.logistics,
+            data_expiracao: expirationDateObj.toISOString(),
+            status: statusInicial,
+            cidade: commonData.cidade,
+            estado: commonData.estado,
+            foto_url: finalPhotoUrl
+        }
+    }
+
+    const validateForm = () => {
+        if (!commonData.cidade?.trim()) {
+            return 'Cidade e obrigatoria. Por favor, libere a localizacao ou preencha manualmente.'
+        }
+
+        if (!userProfile?.instituicao_id) {
+            return 'Erro: Seu perfil nao esta vinculado a uma instituicao. Apenas instituicoes podem criar anuncios.'
+        }
+
+        if (!canCreateType(commonData.type)) {
+            return 'Seu usuario nao possui permissao para este tipo de anuncio.'
+        }
+
+        if (commonData.type === 'EMPRESTIMO' && !commonData.returnDate) {
+            return 'Prazo de devolucao e obrigatorio para emprestimos.'
+        }
+
+        if (commonData.type === 'PERMUTA' && !commonData.exchangeItems?.trim()) {
+            return 'Itens desejados para troca sao obrigatorios para permuta.'
+        }
+
+        if (items.length > MAX_BULK_ITEMS) {
+            return `Limite de ${MAX_BULK_ITEMS} itens por envio atingido.`
+        }
+
+        const today = new Date().toISOString().split('T')[0]
+        const itemsToValidate = isEditMode ? items.slice(0, 1) : items
+
+        for (let index = 0; index < itemsToValidate.length; index += 1) {
+            const item = itemsToValidate[index]
+            const label = `Item ${index + 1}`
+
+            if (!item.description?.trim()) {
+                return `${label}: selecione um medicamento da lista.`
+            }
+
+            if (!item.quantity || Number(item.quantity) <= 0) {
+                return `${label}: informe uma quantidade valida.`
+            }
+
+            if (!item.batch?.trim()) {
+                return `${label}: informe o lote.`
+            }
+
+            if (!item.expirationDate) {
+                return `${label}: informe a data de vencimento.`
+            }
+
+            if (item.expirationDate < today) {
+                return `${label}: a data de vencimento nao pode ser no passado.`
+            }
+
+            if (!item.previewApproved) {
+                return `${label}: aprove a previa do WhatsApp antes de salvar o anuncio.`
+            }
+
+            if (item.previewUrl && !item.previewReady) {
+                return `${label}: aguarde a previa do WhatsApp ser processada.`
+            }
+        }
+
+        return null
+    }
+
+    const handleSubmit = async (event) => {
+        event.preventDefault()
         setLoading(true)
         setFeedback('')
 
-        // Ensure description is filled (validation usually done by HTML 'required' or disabled button, but double check)
-        if (!formData.description) {
-            setFeedback('Por favor, selecione um medicamento da lista.')
+        const validationError = validateForm()
+        if (validationError) {
+            setFeedback(validationError)
             setLoading(false)
             return
         }
 
-        if (!previewApproved) {
-            setFeedback('Aprove a previa do WhatsApp antes de salvar o anuncio.')
-            setLoading(false)
-            return
-        }
-
-        // Validations
-        const today = new Date().toISOString().split('T')[0]
-        if (formData.expirationDate < today) {
-            setFeedback('A data de vencimento não pode ser no passado.')
-            setLoading(false)
-            return
-        }
-
-        if (!formData.cidade) {
-            setFeedback('Cidade é obrigatória. Por favor, libere a localização ou preencha manualmente.')
-            setLoading(false)
-            return
-        }
-
-        // Check for Institution Link
-        if (!userProfile?.instituicao_id) {
-            setFeedback('Erro: Seu perfil não está vinculado a uma instituição. Apenas instituições podem criar anúncios.')
-            setLoading(false)
-            return
-        }
-
-        // Type Specific Checks
-        if (formData.type === 'EMPRESTIMO' && !formData.returnDate) {
-            setFeedback('Prazo de devolução é obrigatório para empréstimos.')
-            setLoading(false)
-            return
-        }
-        if (formData.type === 'PERMUTA' && !formData.exchangeItems) {
-            setFeedback('Itens desejados para troca são obrigatórios para permuta.')
-            setLoading(false)
-            return
-        }
+        const uploadedPaths = []
 
         try {
-            // 3. Persist Logic
-            // 3. Persist Logic
-            // Note: We are now SELECTING from catalogo_itens, so no need to save back to it unless we allow new entries.
-            // Current requirement is STRICT catalog. So skip insert.
-
-            let finalPhotoUrl = null
-            let finalPhotoPath = null
-
-            // Upload the exact preview approved by the user when the post has media.
-            if (previewUrl) {
-                setUploadingImage(true)
-                try {
-                    if (!statusPreviewCanvasRef.current || !previewReady) {
-                        throw new Error('Preview ainda nao esta pronto')
-                    }
-
-                    const processedBlob = await canvasToJpegBlob(statusPreviewCanvasRef.current)
-                    const fileExt = 'jpg' // We converted to jpeg
-                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
-                    const filePath = `${user.id}/${fileName}`
-
-                    const { error: uploadError } = await supabase.storage
-                        .from('anuncios-fotos')
-                        .upload(filePath, processedBlob, {
-                            contentType: 'image/jpeg',
-                            upsert: false
-                        })
-
-                    if (uploadError) throw uploadError
-
-                    const { data: publicUrlData } = supabase.storage
-                        .from('anuncios-fotos')
-                        .getPublicUrl(filePath)
-
-                    finalPhotoUrl = publicUrlData.publicUrl
-                    finalPhotoPath = filePath
-                } catch (uploadErr) {
-                    console.error("Erro no upload:", uploadErr)
-                    setFeedback("Erro ao enviar imagem. Tente novamente.")
-                    setLoading(false)
-                    setUploadingImage(false)
-                    return
-                }
-                setUploadingImage(false)
-            }
-
-
-            // Calculate Ad Expiration
-            // Calculate Ad Expiration
             const daysToAdd = 30
             const expirationDateObj = new Date()
             expirationDateObj.setDate(expirationDateObj.getDate() + daysToAdd)
 
             const statusInicial = (userProfile?.requer_aprovacao === true && userProfile?.role !== 'UNIDADE_ADM')
                 ? 'AGUARDANDO_APROVACAO'
-                : 'ATIVO';
+                : 'ATIVO'
 
-            const payload = {
-                usuario_id: user.id,
-                instituicao_id: userProfile.instituicao_id,
-                item_codigo: formData.itemCode,
-                descricao_customizada: formData.description,
-                quantidade: formData.quantity, // Added quantity
-                preco_unitario: formData.unitPrice || 0,
-                valor_total_estoque: (formData.unitPrice || 0) * (formData.quantity || 0),
-                lote: formData.batch,
-                data_vencimento: formData.expirationDate,
-                tipo: formData.type,
-                prazo_devolucao: formData.type === 'EMPRESTIMO' ? formData.returnDate : null,
-                itens_desejados_troca: formData.type === 'PERMUTA' ? formData.exchangeItems : null,
-                logistica: formData.logistics,
-                data_expiracao: expirationDateObj.toISOString(),
-                status: statusInicial, // Use dynamic status
-                cidade: formData.cidade,
-                estado: formData.estado,
-                foto_url: finalPhotoUrl
-            }
+            const payloads = []
+            const notifications = []
+            const itemsToSubmit = isEditMode ? items.slice(0, 1) : items
 
-            let error = null
+            for (const item of itemsToSubmit) {
+                let finalPhotoUrl = null
+                let finalPhotoPath = null
 
-            if (isEditMode && editingId) {
-                const { error: updateError } = await supabase
-                    .from('anuncios')
-                    .update(payload)
-                    .eq('id', editingId)
-                error = updateError
-            } else {
-                const { error: insertError } = await supabase
-                    .from('anuncios')
-                    .insert([payload])
-                error = insertError
-            }
+                if (item.previewUrl) {
+                    setItemPreviewState(item.id, { uploadingImage: true })
 
-            if (error) throw error
+                    try {
+                        const canvas = itemCanvasRefs.current[item.id]
+                        if (!canvas || !item.previewReady) {
+                            throw new Error('Preview ainda nao esta pronto')
+                        }
 
-            if (statusInicial === 'ATIVO') {
-                notifyStatusBot({
+                        const processedBlob = await canvasToJpegBlob(canvas)
+                        const fileName = `${Date.now()}_${item.id}_${Math.random().toString(36).slice(2)}.jpg`
+                        const filePath = `${user.id}/${fileName}`
+
+                        const { error: uploadError } = await supabase.storage
+                            .from('anuncios-fotos')
+                            .upload(filePath, processedBlob, {
+                                contentType: 'image/jpeg',
+                                upsert: false
+                            })
+
+                        if (uploadError) throw uploadError
+
+                        const { data: publicUrlData } = supabase.storage
+                            .from('anuncios-fotos')
+                            .getPublicUrl(filePath)
+
+                        finalPhotoUrl = publicUrlData.publicUrl
+                        finalPhotoPath = filePath
+                        uploadedPaths.push(filePath)
+                    } finally {
+                        setItemPreviewState(item.id, { uploadingImage: false })
+                    }
+                }
+
+                payloads.push(buildPayload({
+                    item,
+                    finalPhotoUrl,
+                    statusInicial,
+                    expirationDateObj
+                }))
+                notifications.push({
                     filePath: finalPhotoPath,
-                    caption: buildStatusCaption(formData),
+                    caption: buildStatusCaption(mergeForStatus(item, commonData))
                 })
             }
 
-            if (statusInicial === 'AGUARDANDO_APROVACAO') {
-                alert('Anúncio enviado para aprovação do Administrador!')
-                navigate('/')
+            if (isEditMode && editingId) {
+                const { error } = await supabase
+                    .from('anuncios')
+                    .update(payloads[0])
+                    .eq('id', editingId)
+
+                if (error) throw error
             } else {
-                alert(isEditMode ? 'Anúncio atualizado com sucesso!' : 'Anúncio criado com sucesso!')
-                navigate(isEditMode ? '/meus-anuncios' : '/')
+                const { error } = await supabase
+                    .from('anuncios')
+                    .insert(payloads)
+
+                if (error) throw error
             }
 
+            if (statusInicial === 'ATIVO') {
+                notifications.forEach((notification) => notifyStatusBot(notification))
+            }
+
+            if (statusInicial === 'AGUARDANDO_APROVACAO') {
+                alert(isEditMode
+                    ? 'Anuncio enviado para aprovacao do Administrador!'
+                    : `${payloads.length} anuncio(s) enviado(s) para aprovacao do Administrador!`)
+                navigate('/')
+            } else {
+                alert(isEditMode
+                    ? 'Anuncio atualizado com sucesso!'
+                    : `${payloads.length} anuncio(s) criado(s) com sucesso!`)
+                navigate(isEditMode ? '/meus-anuncios' : '/')
+            }
         } catch (err) {
+            if (uploadedPaths.length > 0) {
+                const { error: cleanupError } = await supabase.storage
+                    .from('anuncios-fotos')
+                    .remove(uploadedPaths)
+
+                if (cleanupError) {
+                    console.error('Erro ao limpar imagens apos falha:', cleanupError)
+                }
+            }
+
             console.error(err)
-            setFeedback('Erro ao criar anúncio: ' + err.message)
+            setFeedback(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} anuncio: ${err.message}`)
         } finally {
             setLoading(false)
         }
     }
 
+    const hasPendingPreview = items.some(item => item.previewUrl && !item.previewReady)
+    const hasUploadingImage = items.some(item => item.uploadingImage)
+    const hasNoAdPermission = userProfile
+        && !canCreateType('DOACAO')
+        && !canCreateType('EMPRESTIMO')
+        && !canCreateType('PERMUTA')
+    const feedbackIsError = feedback && !feedback.toLowerCase().includes('sucesso')
+
     if (blockingCheckLoading) return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
             <div className="text-gray-500">Verificando...</div>
         </div>
     )
 
     if (isBlocked) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-                <div className="bg-white p-8 rounded shadow text-center max-w-lg">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Atenção!</h2>
+            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+                <div className="max-w-lg rounded bg-white p-8 text-center shadow">
+                    <h2 className="mb-4 text-2xl font-bold text-red-600">Atencao!</h2>
                     <p className="text-gray-700">{msgBlocked}</p>
                     <button
+                        type="button"
                         onClick={() => navigate('/')}
-                        className="mt-6 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                        className="mt-6 rounded bg-gray-200 px-4 py-2 hover:bg-gray-300"
                     >
                         Voltar para Home
                     </button>
@@ -729,7 +1174,7 @@ const NewAd = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="mx-auto max-w-5xl">
             <Card>
                 <CardHeader>
                     <div className="flex items-center space-x-4">
@@ -741,47 +1186,55 @@ const NewAd = () => {
                         >
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
-                        <CardTitle>{isEditMode ? 'Editar Anúncio' : 'Novo Anúncio'}</CardTitle>
+                        <div>
+                            <CardTitle>{isEditMode ? 'Editar Anuncio' : 'Novo Anuncio'}</CardTitle>
+                            {!isEditMode && (
+                                <p className="mt-1 text-sm text-slate-500">
+                                    Cadastre varios itens usando os mesmos dados de local, negociacao e logistica.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
+
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-8">
-
                         {feedback && (
-                            <div className={`mb-6 p-4 rounded-lg flex items-center space-x-3 ${feedback.includes('Erro') || feedback.includes('passado') || feedback.includes('obrigatório') || feedback.includes('Cidade') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
-                                {feedback.includes('Erro') ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+                            <div className={`mb-6 flex items-center space-x-3 rounded-lg border p-4 ${feedbackIsError ? 'border-red-100 bg-red-50 text-red-700' : 'border-green-100 bg-green-50 text-green-700'}`}>
+                                {feedbackIsError ? <XCircle className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
                                 <span>{feedback}</span>
                             </div>
                         )}
 
                         {locationError && (
-                            <div className="mb-6 p-4 rounded-lg bg-orange-50 text-orange-700 border border-orange-100 text-sm flex items-start space-x-3">
+                            <div className="mb-6 flex items-start space-x-3 rounded-lg border border-orange-100 bg-orange-50 p-4 text-sm text-orange-700">
                                 <AlertTriangle className="h-5 w-5 shrink-0" />
                                 <p>{locationError} <strong>Por favor, preencha a cidade manualmente.</strong></p>
                             </div>
                         )}
-                        {/* Location Info - Editable but auto-filled */}
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center">
-                                <MapPin className="h-4 w-4 mr-2" />
-                                Localização do Item
+
+                        <section className="rounded-lg border border-slate-200 bg-slate-50 p-6">
+                            <h3 className="mb-4 flex items-center text-sm font-semibold text-slate-800">
+                                <MapPin className="mr-2 h-4 w-4" />
+                                Dados comuns dos anuncios
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                                 <div className="md:col-span-2">
                                     <Label className="mb-2 block">Cidade</Label>
                                     <div className="relative">
                                         <Input
                                             type="text"
                                             name="cidade"
-                                            value={formData.cidade}
-                                            onChange={handleChange}
+                                            value={commonData.cidade}
+                                            onChange={handleCommonChange}
                                             required
-                                            placeholder="Ex: São Paulo"
+                                            placeholder="Ex: Sao Paulo"
                                             className="pl-3 pr-10"
                                         />
                                         <div className="absolute right-3 top-2.5 text-gray-400">
                                             {locationLoading ? (
-                                                <div className="animate-spin h-4 w-4 border-b-2 border-blue-600 rounded-full"></div>
+                                                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-brand-deep" />
                                             ) : (
                                                 <MapPin className="h-4 w-4" />
                                             )}
@@ -793,325 +1246,137 @@ const NewAd = () => {
                                     <Input
                                         type="text"
                                         name="estado"
-                                        value={formData.estado}
-                                        onChange={handleChange}
+                                        value={commonData.estado}
+                                        onChange={handleCommonChange}
                                         maxLength={2}
                                         placeholder="UF"
                                     />
                                 </div>
                             </div>
-                        </div>
 
+                            <div className="mt-6">
+                                <Label className="mb-3 block">Tipo de Negociacao</Label>
 
-                        {/* Item Identification */}
-                        <div>
-                            <Label className="mb-2 block">Busca de Medicamento</Label>
-                            <Autocomplete
-                                onSearch={handleSearch}
-                                onSelect={handleSelect}
-                                placeholder="Digite o nome do medicamento (mínimo 3 letras)..."
-                                initialValue={formData.description}
-                            />
-                            <p className="mt-1 text-xs text-slate-500">Digite pelo menos 3 caracteres para buscar na base oficial.</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <Label className="mb-2 block">Descrição Oficial</Label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <FileText className="h-5 w-5 text-gray-400" />
+                                {hasNoAdPermission && (
+                                    <div className="mb-4 rounded-md bg-red-100 p-3 text-sm text-red-800">
+                                        Seu usuario nao possui permissao para criar anuncios. Contate o administrador.
                                     </div>
-                                    <Input
-                                        type="text"
-                                        name="description"
-                                        value={formData.description}
-                                        readOnly={true}
-                                        disabled={true}
-                                        className="pl-10 bg-slate-100 text-slate-500 cursor-not-allowed"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label className="mb-2 block">Categoria</Label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Tag className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <Input
-                                        type="text"
-                                        name="category"
-                                        value={formData.category}
-                                        readOnly={true}
-                                        disabled={true}
-                                        className="pl-10 bg-slate-100 text-slate-500 cursor-not-allowed"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <Label className="mb-2 block">Quantidade</Label>
-                                <div className="relative">
-                                    <Input
-                                        type="number"
-                                        name="quantity"
-                                        value={formData.quantity}
-                                        onChange={handleChange}
-                                        required
-                                        min="1"
-                                        placeholder="Qtd"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label className="mb-2 block">Lote</Label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Package className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <Input
-                                        type="text"
-                                        name="batch"
-                                        value={formData.batch}
-                                        onChange={handleChange}
-                                        required
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <Label className="mb-2 block">Data de Vencimento</Label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Calendar className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <Input
-                                        type="date"
-                                        name="expirationDate"
-                                        value={formData.expirationDate}
-                                        onChange={handleChange}
-                                        required
-                                        min={new Date().toISOString().split('T')[0]}
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Financials - Dedicated Section */}
-                        <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100">
-                            <h3 className="text-sm font-semibold text-emerald-800 mb-4 flex items-center">
-                                <Tag className="h-4 w-4 mr-2" />
-                                Valor e Impacto
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <Label className="mb-2 block text-emerald-900">Preço Unitário (R$)</Label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="text-emerald-600 font-bold">R$</span>
-                                        </div>
-                                        <Input
-                                            type="number"
-                                            name="unitPrice"
-                                            value={formData.unitPrice}
-                                            onChange={handleChange}
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0,00"
-                                            className="pl-10 border-emerald-200 focus:ring-emerald-500"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-emerald-700 mt-1">Defina o valor de mercado para calcular a economia gerada.</p>
-                                </div>
-                                <div className="bg-white p-4 rounded-lg border border-emerald-100 flex flex-col justify-center">
-                                    <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Valor Total do Estoque</span>
-                                    <span className="text-2xl font-bold text-emerald-900">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                                            (parseFloat(formData.unitPrice) || 0) * (parseFloat(formData.quantity) || 0)
-                                        )}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Type Logic */}
-                        {/* Type Logic */}
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                            <Label className="mb-3 block">Tipo de Negociação</Label>
-
-                            {/* Alert if permissions are restricted */}
-                            {(!userProfile?.pode_doar && !userProfile?.pode_emprestar && !userProfile?.pode_permutar && userProfile?.role !== 'UNIDADE_ADM') && (
-                                <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md text-sm">
-                                    Seu usuário não possui permissão para criar anúncios. Contate o administrador.
-                                </div>
-                            )}
-
-                            <div className="flex items-center space-x-4">
-                                {(userProfile?.pode_doar !== false || userProfile?.role === 'UNIDADE_ADM') && (
-                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'DOACAO' ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                        <input type="radio" name="type" value="DOACAO" checked={formData.type === 'DOACAO'} onChange={handleChange} className="sr-only" />
-                                        <span className="font-semibold text-sm">Doação</span>
-                                    </label>
                                 )}
 
-                                {(userProfile?.pode_emprestar !== false || userProfile?.role === 'UNIDADE_ADM') && (
-                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'EMPRESTIMO' ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                        <input type="radio" name="type" value="EMPRESTIMO" checked={formData.type === 'EMPRESTIMO'} onChange={handleChange} className="sr-only" />
-                                        <span className="font-semibold text-sm">Empréstimo</span>
-                                    </label>
-                                )}
-
-                                {(userProfile?.pode_permutar !== false || userProfile?.role === 'UNIDADE_ADM') && (
-                                    <label className={`cursor-pointer border rounded-lg p-3 flex-1 text-center transition ${formData.type === 'PERMUTA' ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-sm' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
-                                        <input type="radio" name="type" value="PERMUTA" checked={formData.type === 'PERMUTA'} onChange={handleChange} className="sr-only" />
-                                        <span className="font-semibold text-sm">Permuta</span>
-                                    </label>
-                                )}
-                            </div>
-
-
-                            {formData.type === 'EMPRESTIMO' && (
-                                <div className="mt-4 animate-fadeIn">
-                                    <Label className="mb-2 block">Prazo de Devolução</Label>
-                                    <Input
-                                        type="date"
-                                        name="returnDate"
-                                        value={formData.returnDate}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                            )}
-
-                            {formData.type === 'PERMUTA' && (
-                                <div className="mt-4 animate-fadeIn">
-                                    <Label className="mb-2 block">Itens Desejados para Troca</Label>
-                                    <Textarea
-                                        name="exchangeItems"
-                                        value={formData.exchangeItems}
-                                        onChange={handleChange}
-                                        required
-                                        rows={3}
-                                        placeholder="Liste o que você gostaria em troca..."
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Logistics */}
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                            <Label className="mb-3 block">Logística de Entrega</Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <label className={`cursor-pointer border rounded-lg p-3 text-center transition ${formData.logistics === 'RETIRADA' ? 'bg-slate-200 border-slate-400 font-semibold' : 'bg-white border-slate-300 hover:bg-slate-100'}`}>
-                                    <input type="radio" name="logistics" value="RETIRADA" checked={formData.logistics === 'RETIRADA'} onChange={handleChange} className="sr-only" />
-                                    <span>Retirada no Local</span>
-                                </label>
-                                <label className={`cursor-pointer border rounded-lg p-3 text-center transition ${formData.logistics === 'ENTREGA' ? 'bg-slate-200 border-slate-400 font-semibold' : 'bg-white border-slate-300 hover:bg-slate-100'}`}>
-                                    <input type="radio" name="logistics" value="ENTREGA" checked={formData.logistics === 'ENTREGA'} onChange={handleChange} className="sr-only" />
-                                    <span>Entrega Disponível</span>
-                                </label>
-                                <label className={`cursor-pointer border rounded-lg p-3 text-center transition ${formData.logistics === 'COMBINAR' ? 'bg-slate-200 border-slate-400 font-semibold' : 'bg-white border-slate-300 hover:bg-slate-100'}`}>
-                                    <input type="radio" name="logistics" value="COMBINAR" checked={formData.logistics === 'COMBINAR'} onChange={handleChange} className="sr-only" />
-                                    <span>A Combinar</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label className="mb-2 block">Foto do Item</Label>
-                            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                <div className="flex flex-col items-center">
-                                    {/* Preview Area */}
-                                    <div className="w-full max-w-sm h-64 bg-slate-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden border-2 border-dashed border-slate-300 relative">
-                                        {previewUrl ? (
-                                            <img
-                                                src={previewUrl}
-                                                alt="Prévia"
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="text-center text-slate-400">
-                                                <Camera className="h-12 w-12 mx-auto mb-2" />
-                                                <span className="text-sm">Nenhuma foto selecionada</span>
-                                            </div>
-                                        )}
-                                        {uploadingImage && (
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-semibold">
-                                                Enviando...
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* File Input */}
-                                    <div className="relative w-full max-w-sm">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            className="hidden"
-                                            id="file-upload"
-                                        />
-                                        <label
-                                            htmlFor="file-upload"
-                                            className="w-full flex items-center justify-center space-x-2 bg-white border border-slate-300 text-slate-700 py-2 px-4 rounded-lg cursor-pointer hover:bg-slate-50 transition shadow-sm"
-                                        >
-                                            <Camera className="h-4 w-4" />
-                                            <span>{previewUrl ? 'Trocar Foto' : 'Adicionar Foto'}</span>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                    {canCreateType('DOACAO') && (
+                                        <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.type === 'DOACAO' ? 'border-brand-periwinkle bg-brand-lavender/20 text-brand-royal shadow-sm' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                                            <input type="radio" name="type" value="DOACAO" checked={commonData.type === 'DOACAO'} onChange={handleCommonChange} className="sr-only" />
+                                            <span className="text-sm font-semibold">Doacao</span>
                                         </label>
+                                    )}
+
+                                    {canCreateType('EMPRESTIMO') && (
+                                        <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.type === 'EMPRESTIMO' ? 'border-brand-periwinkle bg-brand-lavender/20 text-brand-deep shadow-sm' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                                            <input type="radio" name="type" value="EMPRESTIMO" checked={commonData.type === 'EMPRESTIMO'} onChange={handleCommonChange} className="sr-only" />
+                                            <span className="text-sm font-semibold">Emprestimo</span>
+                                        </label>
+                                    )}
+
+                                    {canCreateType('PERMUTA') && (
+                                        <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.type === 'PERMUTA' ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm' : 'border-slate-300 bg-white hover:bg-slate-50'}`}>
+                                            <input type="radio" name="type" value="PERMUTA" checked={commonData.type === 'PERMUTA'} onChange={handleCommonChange} className="sr-only" />
+                                            <span className="text-sm font-semibold">Permuta</span>
+                                        </label>
+                                    )}
+                                </div>
+
+                                {commonData.type === 'EMPRESTIMO' && (
+                                    <div className="mt-4 animate-fadeIn">
+                                        <Label className="mb-2 block">Prazo de Devolucao</Label>
+                                        <Input
+                                            type="date"
+                                            name="returnDate"
+                                            value={commonData.returnDate}
+                                            onChange={handleCommonChange}
+                                            required
+                                        />
                                     </div>
+                                )}
+
+                                {commonData.type === 'PERMUTA' && (
+                                    <div className="mt-4 animate-fadeIn">
+                                        <Label className="mb-2 block">Itens Desejados para Troca</Label>
+                                        <Textarea
+                                            name="exchangeItems"
+                                            value={commonData.exchangeItems}
+                                            onChange={handleCommonChange}
+                                            required
+                                            rows={3}
+                                            placeholder="Liste o que voce gostaria em troca..."
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-6">
+                                <Label className="mb-3 block">Logistica de Entrega</Label>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                    <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.logistics === 'RETIRADA' ? 'border-slate-400 bg-slate-200 font-semibold' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>
+                                        <input type="radio" name="logistics" value="RETIRADA" checked={commonData.logistics === 'RETIRADA'} onChange={handleCommonChange} className="sr-only" />
+                                        <span>Retirada no Local</span>
+                                    </label>
+                                    <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.logistics === 'ENTREGA' ? 'border-slate-400 bg-slate-200 font-semibold' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>
+                                        <input type="radio" name="logistics" value="ENTREGA" checked={commonData.logistics === 'ENTREGA'} onChange={handleCommonChange} className="sr-only" />
+                                        <span>Entrega Disponivel</span>
+                                    </label>
+                                    <label className={`cursor-pointer rounded-lg border p-3 text-center transition ${commonData.logistics === 'COMBINAR' ? 'border-slate-400 bg-slate-200 font-semibold' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>
+                                        <input type="radio" name="logistics" value="COMBINAR" checked={commonData.logistics === 'COMBINAR'} onChange={handleCommonChange} className="sr-only" />
+                                        <span>A Combinar</span>
+                                    </label>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <div>
-                            <Label className="mb-2 block">Previa do WhatsApp</Label>
-                            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                {previewUrl ? (
-                                    <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                                        <canvas
-                                            ref={statusPreviewCanvasRef}
-                                            width={1080}
-                                            height={1350}
-                                            className="block aspect-[4/5] w-full bg-white"
-                                            aria-label="Previa visual do post no WhatsApp"
-                                        />
-                                        {(!previewReady || uploadingImage) && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm font-semibold text-slate-700">
-                                                {uploadingImage ? 'Enviando preview...' : 'Montando preview...'}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="mx-auto w-full max-w-md rounded-xl bg-[#efeae2] p-4">
-                                        <div className="ml-auto max-w-[92%] rounded-lg bg-[#d9fdd3] p-3 text-sm leading-relaxed text-slate-900 shadow-sm whitespace-pre-line">
-                                            {buildStatusCaption(formData)}
-                                        </div>
-                                    </div>
+                        <section className="space-y-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-slate-900">Itens do envio</h2>
+                                    <p className="text-sm text-slate-500">
+                                        {isEditMode ? 'Edicao individual do anuncio selecionado.' : `${items.length} de ${MAX_BULK_ITEMS} item(ns) adicionados.`}
+                                    </p>
+                                </div>
+                                {!isEditMode && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="gap-2"
+                                        onClick={handleAddItem}
+                                        disabled={items.length >= MAX_BULK_ITEMS}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Adicionar item
+                                    </Button>
                                 )}
-
-                                {previewError && (
-                                    <p className="mt-3 text-sm text-red-600">{previewError}</p>
-                                )}
-
-                                <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                                    <input
-                                        type="checkbox"
-                                        checked={previewApproved}
-                                        onChange={(event) => setPreviewApproved(event.target.checked)}
-                                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
-                                    />
-                                    <span>Aprovo esta previa para postagem no WhatsApp.</span>
-                                </label>
                             </div>
-                        </div>
 
+                            <div className="space-y-5">
+                                {items.map((item, index) => (
+                                    <AdItemFields
+                                        key={item.id}
+                                        item={item}
+                                        index={index}
+                                        totalItems={items.length}
+                                        isEditMode={isEditMode}
+                                        commonData={commonData}
+                                        onSearch={handleSearch}
+                                        onSelect={handleItemSelect}
+                                        onFieldChange={handleItemFieldChange}
+                                        onImageChange={handleImageChange}
+                                        onRemove={handleRemoveItem}
+                                        onPreviewChange={setItemPreviewState}
+                                        setCanvasRef={setItemCanvasRef}
+                                    />
+                                ))}
+                            </div>
+                        </section>
                     </CardContent>
+
                     <CardFooter className="flex justify-end space-x-3 border-t border-slate-100 p-6">
                         <Button
                             type="button"
@@ -1122,15 +1387,17 @@ const NewAd = () => {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={loading || !formData.description || !previewApproved || Boolean(previewUrl && !previewReady)}
+                            disabled={loading || hasPendingPreview || hasNoAdPermission}
                         >
-                            {loading ? <span className="animate-spin mr-2">⏳</span> : <Save className="h-4 w-4 mr-2" />}
-                            {loading ? (uploadingImage ? 'Enviando Imagem...' : 'Salvando...') : (isEditMode ? 'Atualizar Anúncio' : 'Criar Anúncio')}
+                            {loading ? <span className="mr-2 animate-spin">...</span> : <Save className="mr-2 h-4 w-4" />}
+                            {loading
+                                ? (hasUploadingImage ? 'Enviando Imagens...' : 'Salvando...')
+                                : (isEditMode ? 'Atualizar Anuncio' : `Criar ${items.length} Anuncio(s)`)}
                         </Button>
                     </CardFooter>
                 </form>
             </Card>
-        </div >
+        </div>
     )
 }
 

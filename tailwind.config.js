@@ -14,6 +14,14 @@ export default {
     },
     extend: {
       colors: {
+        brand: {
+          lavender: "#C2ACF2",
+          periwinkle: "#8091F2",
+          deep: "#2B57D9",
+          royal: "#4167D9",
+          mist: "#F2F2F2",
+          ink: "#102159",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

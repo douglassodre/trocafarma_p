@@ -106,7 +106,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
             return;
         }
         if (formData.type === 'EMPRESTIMO' && !formData.returnDate) {
-            alert("Por favor, informe o prazo de devolução.");
+            alert("Por favor, informe o previsão de devolução.");
             return;
         }
         if (formData.type === 'PERMUTA' && !formData.exchangeItems) {
@@ -379,7 +379,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                     <div className="animate-fade-in">
                                         <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                                             <Calendar className="w-4 h-4" />
-                                            Prazo de Devolução
+                                            Previsão de Devolução
                                         </label>
                                         <input
                                             type="date"

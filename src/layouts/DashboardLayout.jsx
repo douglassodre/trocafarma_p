@@ -31,10 +31,10 @@ const DashboardLayout = ({ children }) => {
     }, [user, userProfile, loading, navigate, location.pathname])
 
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-brand-mist text-brand-ink">Carregando...</div>
 
     return (
-        <div className="min-h-screen bg-slate-100 relative">
+        <div className="min-h-screen bg-brand-mist relative">
             <DeliveryConfirmationModal />
             <Sidebar />
             <div className="md:pl-64">

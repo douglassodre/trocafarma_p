@@ -131,7 +131,7 @@ const ReturnProcess = () => {
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -144,7 +144,7 @@ const ReturnProcess = () => {
             <div className="max-w-2xl mx-auto">
                 <Button
                     variant="ghost"
-                    className="mb-6 pl-0 hover:bg-transparent hover:text-indigo-600"
+                    className="mb-6 pl-0 hover:bg-transparent hover:text-brand-deep"
                     onClick={() => navigate('/minhas-solicitacoes')}
                 >
                     <ArrowLeft className="h-5 w-5 mr-2" />
@@ -154,7 +154,7 @@ const ReturnProcess = () => {
                 <Card>
                     <CardHeader className="bg-slate-100/50 border-b border-slate-100">
                         <CardTitle className="text-xl text-slate-800 flex items-center gap-2">
-                            <Package className="h-6 w-6 text-indigo-600" />
+                            <Package className="h-6 w-6 text-brand-deep" />
                             Registrar Devolução
                         </CardTitle>
                     </CardHeader>
@@ -183,9 +183,9 @@ const ReturnProcess = () => {
                                 <div>
                                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status Atual</h3>
                                     <div className="flex flex-col gap-2">
-                                        <div className="flex justify-between items-center bg-indigo-50 p-2 rounded">
-                                            <span className="text-indigo-900 text-sm font-medium">Disponível p/ Devolução</span>
-                                            <span className="text-indigo-700 font-bold text-lg">{availableQty}</span>
+                                        <div className="flex justify-between items-center bg-brand-lavender/20 p-2 rounded">
+                                            <span className="text-brand-ink text-sm font-medium">Disponível p/ Devolução</span>
+                                            <span className="text-brand-royal font-bold text-lg">{availableQty}</span>
                                         </div>
                                         {pendingReturnsQty > 0 && (
                                             <div className="text-xs text-orange-600 bg-orange-50 p-1.5 rounded border border-orange-100 flex items-center gap-1">
@@ -251,7 +251,7 @@ const ReturnProcess = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3 text-sm text-blue-800 mt-4">
+                            <div className="bg-brand-lavender/20 border border-brand-periwinkle/40 rounded-lg p-4 flex gap-3 text-sm text-brand-ink mt-4">
                                 <AlertTriangle className="h-5 w-5 shrink-0" />
                                 <p>
                                     Ao clicar em confirmar, a devolução ficará como "Pendente" até a confirmação do fornecedor.

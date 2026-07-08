@@ -73,7 +73,7 @@ const ActiveUrgencies = () => {
                             onClick={() => handleHelp(urg.id)}
                         >
                             {/* Card with Gradient Border imitating 'Story' ring */}
-                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 p-[2px] shadow-sm">
+                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-yellow-400 via-red-500 to-brand-periwinkle p-[2px] shadow-sm">
                                 <div className="w-full h-full bg-white rounded-2xl overflow-hidden flex flex-col relative">
                                     {/* Header / Top */}
                                     <div className="h-24 bg-gradient-to-b from-red-50 to-white p-3 flex flex-col items-center justify-center text-center">

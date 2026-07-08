@@ -118,18 +118,18 @@ const Relatorio = () => {
             </div>
 
             {/* Screen Header */}
-            <div className="print:hidden bg-indigo-600 text-white p-6 shadow-lg">
+            <div className="print:hidden bg-brand-deep text-white p-6 shadow-lg">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Button variant="ghost" onClick={() => navigate('/')} className="text-indigo-100 hover:bg-indigo-700 hover:text-white">
+                        <Button variant="ghost" onClick={() => navigate('/')} className="text-brand-lavender/40 hover:bg-brand-royal hover:text-white">
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
                             <h1 className="text-2xl font-bold">Relatório de Impacto</h1>
-                            <p className="text-indigo-100 opacity-90">Visualize suas economias geradas na plataforma.</p>
+                            <p className="text-brand-lavender/40 opacity-90">Visualize suas economias geradas na plataforma.</p>
                         </div>
                     </div>
-                    <Button onClick={handlePrint} className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold gap-2 shadow-sm">
+                    <Button onClick={handlePrint} className="bg-white text-brand-deep hover:bg-brand-lavender/20 font-bold gap-2 shadow-sm">
                         <Printer className="h-4 w-4" />
                         Imprimir Relatório
                     </Button>
@@ -144,7 +144,7 @@ const Relatorio = () => {
                     <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-periwinkle"
                     >
                         <option value="all">Todos os Meses</option>
                         {months.map(m => (
@@ -155,7 +155,7 @@ const Relatorio = () => {
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-periwinkle"
                     >
                         <option value="all">Todos os Anos</option>
                         {years.map(y => (
@@ -175,9 +175,9 @@ const Relatorio = () => {
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSavings)}
                         </p>
                     </div>
-                    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 print:border-gray-200">
-                        <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Itens Recebidos</p>
-                        <p className="text-3xl font-bold text-blue-800 mt-2">{filteredTransactions.length}</p>
+                    <div className="bg-brand-lavender/20 p-6 rounded-xl border border-brand-periwinkle/20 print:border-gray-200">
+                        <p className="text-sm font-semibold text-brand-royal uppercase tracking-wide">Itens Recebidos</p>
+                        <p className="text-3xl font-bold text-brand-ink mt-2">{filteredTransactions.length}</p>
                     </div>
                     {/* Placeholder for future metric */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 print:border-gray-200">

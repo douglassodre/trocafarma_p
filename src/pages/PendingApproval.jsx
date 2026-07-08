@@ -20,9 +20,9 @@ const PendingApproval = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full text-center p-8 bg-white shadow rounded-xl space-y-6">
-                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-blue-50">
+        <div className="min-h-screen flex items-center justify-center bg-brand-mist px-4">
+            <div className="max-w-md w-full text-center p-8 bg-white shadow rounded-lg space-y-6 border border-brand-lavender/40">
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-brand-lavender/20">
                     <img src={logo} alt="Trocafarma" className="h-12 w-12 object-contain" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900">{title}</h2>

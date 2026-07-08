@@ -350,7 +350,7 @@ const UsersTable = ({ users, updatingId, onUserStatusChange, onUserRoleChange })
                             value={user.role || 'OPERADOR'}
                             disabled={updatingId === user.id}
                             onChange={(event) => onUserRoleChange(user.id, event.target.value)}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-brand-periwinkle focus:outline-none focus:ring-1 focus:ring-brand-periwinkle disabled:opacity-50"
                         >
                             <option value="OPERADOR">OPERADOR</option>
                             <option value="UNIDADE_ADM">UNIDADE_ADM</option>

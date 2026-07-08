@@ -123,7 +123,6 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                 instituicao_id: currentUser.user_metadata?.instituicao_id || null,
                 item_codigo: urgency.item_codigo || 'GENERIC',
                 descricao_customizada: `[URGÊNCIA] ${urgency.item_nome}`,
-                descricao_customizada: `[URGÊNCIA] ${urgency.item_nome}`,
                 quantidade: formData.quantity,
                 preco_unitario: numericPrice,
                 valor_total_estoque: numericPrice * formData.quantity,
@@ -223,7 +222,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-lg w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
@@ -243,21 +242,21 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                             A transação foi criada com sucesso! O solicitante será notificado.
                         </p>
 
-                        <div className="bg-gray-50 p-4 rounded-xl text-left space-y-3">
+                        <div className="bg-brand-lavender/10 p-4 rounded-lg text-left space-y-3">
                             <h3 className="font-semibold text-gray-800 border-b pb-2">Próximos Passos:</h3>
                             <div className="flex items-start gap-3">
-                                <Truck className="w-5 h-5 text-indigo-600 mt-1" />
+                                <Truck className="w-5 h-5 text-brand-deep mt-1" />
                                 <p className="text-sm text-gray-600">Combine a logística de entrega do item.</p>
                             </div>
                             <div className="flex items-start gap-3">
-                                <User className="w-5 h-5 text-indigo-600 mt-1" />
+                                <User className="w-5 h-5 text-brand-deep mt-1" />
                                 <p className="text-sm text-gray-600">Contato: <strong>{urgency.contato_nome}</strong> ({urgency.contato_email})</p>
                             </div>
                         </div>
 
                         <button
                             onClick={onClose}
-                            className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition"
+                            className="w-full py-3 bg-brand-ink text-white rounded-lg font-bold hover:bg-brand-deep transition"
                         >
                             Fechar
                         </button>
@@ -274,7 +273,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
                         <div className="p-6 overflow-y-auto space-y-6 flex-1 min-h-0">
                             {/* Request Info */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <div className="bg-white p-4 rounded-lg border border-brand-lavender/30 shadow-sm">
                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Solicitação</span>
                                 <h3 className="font-bold text-gray-900 text-lg">{urgency.item_nome}</h3>
                                 <div className="flex gap-3 mt-2 text-sm">
@@ -291,14 +290,14 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'DOACAO' })}
-                                            className={`p-2 rounded-lg border text-sm font-medium transition ${formData.type === 'DOACAO' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                            className={`p-2 rounded-lg border text-sm font-medium transition ${formData.type === 'DOACAO' ? 'bg-brand-lavender/20 border-brand-periwinkle text-brand-royal' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
                                         >
                                             Doação
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'EMPRESTIMO' })}
-                                            className={`p-2 rounded-lg border text-sm font-medium transition ${formData.type === 'EMPRESTIMO' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                            className={`p-2 rounded-lg border text-sm font-medium transition ${formData.type === 'EMPRESTIMO' ? 'bg-brand-lavender/20 border-brand-periwinkle text-brand-deep' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
                                         >
                                             Empréstimo
                                         </button>
@@ -323,7 +322,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         value={formData.unitPrice}
                                         onChange={handlePriceChange}
                                         placeholder="R$ 0,00"
-                                        className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle transition"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
                                         Necessário para cálculo de taxas e economia. <strong>Este valor não representa uma venda.</strong>
@@ -341,7 +340,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         value={formData.quantity}
                                         onChange={handleChange}
                                         min="1"
-                                        className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle transition"
                                     />
                                 </div>
 
@@ -356,7 +355,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                             name="lote"
                                             value={formData.lote}
                                             onChange={handleChange}
-                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle transition"
                                             placeholder="Nº Lote"
                                         />
                                     </div>
@@ -370,7 +369,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                             name="validade"
                                             value={formData.validade}
                                             onChange={handleChange}
-                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle transition"
                                         />
                                     </div>
                                 </div>
@@ -387,7 +386,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                             value={formData.returnDate}
                                             onChange={handleChange}
                                             required
-                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 transition"
+                                            className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle transition"
                                         />
                                     </div>
                                 )}
@@ -415,7 +414,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                             <button
                                 onClick={handleConfirmMatch}
                                 disabled={processing}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                className="w-full bg-brand-deep hover:bg-brand-royal text-white py-4 rounded-lg font-bold shadow-lg hover:shadow-xl transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                             >
                                 {processing ? 'Processando...' : (
                                     <>

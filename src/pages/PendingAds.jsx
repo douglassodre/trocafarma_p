@@ -140,8 +140,8 @@ const PendingAds = () => {
                         <div key={ad.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col">
                             <div className="flex justify-between items-start mb-2">
                                 <span className={`px-2 py-1 text-xs font-bold uppercase rounded-full
-                                    ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                        ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                    ${ad.tipo === 'DOACAO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
+                                        ad.tipo === 'EMPRESTIMO' ? 'bg-brand-lavender/30 text-brand-deep' :
                                             'bg-orange-100 text-orange-700'}`}>
                                     {ad.tipo}
                                 </span>

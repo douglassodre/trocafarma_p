@@ -33,9 +33,9 @@ const Explore = () => {
     ]
 
     const types = [
-        { id: 'EMPRESTIMO', label: 'Empréstimo', color: 'bg-purple-100 text-purple-700' },
+        { id: 'EMPRESTIMO', label: 'Empréstimo', color: 'bg-brand-lavender/30 text-brand-deep' },
         { id: 'PERMUTA', label: 'Permuta', color: 'bg-orange-100 text-orange-700' },
-        { id: 'DOACAO', label: 'Doação', color: 'bg-blue-100 text-blue-700' }
+        { id: 'DOACAO', label: 'Doação', color: 'bg-brand-periwinkle/20 text-brand-royal' }
     ]
 
     const [interestedAdIds, setInterestedAdIds] = useState(new Set())
@@ -143,7 +143,7 @@ const Explore = () => {
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -199,7 +199,7 @@ const Explore = () => {
                                 key={cat.id}
                                 onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === cat.id
-                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    ? 'bg-brand-deep text-white shadow-md'
                                     : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                                     }`}
                             >
@@ -215,7 +215,7 @@ const Explore = () => {
                                 key={type.id}
                                 onClick={() => setSelectedType(selectedType === type.id ? null : type.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${selectedType === type.id
-                                    ? 'ring-2 ring-indigo-500 ring-offset-1'
+                                    ? 'ring-2 ring-brand-periwinkle ring-offset-1'
                                     : 'hover:bg-slate-50'
                                     } ${type.color} bg-opacity-50`}
                             >
@@ -253,14 +253,14 @@ const Explore = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {filteredAds.map((ad) => (
-                            <div key={ad.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-slate-100 flex flex-col overflow-hidden">
+                            <div key={ad.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-brand-lavender/30 flex flex-col overflow-hidden">
                                 {/* Card content */}
                                 <div className="p-5 flex-1">
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex gap-2">
                                             <span className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full
-                                                ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                                ${ad.tipo === 'DOACAO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
+                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-brand-lavender/30 text-brand-deep' :
                                                         ad.tipo === 'PERMUTA' ? 'bg-orange-100 text-orange-700' :
                                                             'bg-red-100 text-red-700 animate-pulse'}`}>
                                                 {ad.tipo}
@@ -307,7 +307,7 @@ const Explore = () => {
 
                                 <div className="p-4 bg-slate-50 border-t border-slate-100">
                                     <Button
-                                        className={`w-full ${interestedAdIds.has(ad.id) ? 'bg-green-100 text-green-700 hover:bg-green-200' : (ad.isUrgency ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700')}`}
+                                        className={`w-full ${interestedAdIds.has(ad.id) ? 'bg-green-100 text-green-700 hover:bg-green-200' : (ad.isUrgency ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-brand-deep hover:bg-brand-royal')}`}
                                         onClick={() => ad.isUrgency ? setActiveUrgencyId(ad.original_id) : openModal(ad)}
                                     >
                                         {interestedAdIds.has(ad.id) ? 'Status: Solicitado' : (ad.isUrgency ? 'Atender Urgência' : 'Tenho Interesse')}
@@ -322,7 +322,7 @@ const Explore = () => {
             {/* Modal Detail */}
             {selectedAd && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             {modalView === 'DETAILS' ? (
                                 <>
@@ -331,8 +331,8 @@ const Explore = () => {
                                             <h2 className="text-2xl font-bold text-slate-900 mb-2">{selectedAd.descricao_customizada}</h2>
                                             <div className="flex items-center gap-2">
                                                 <span className={`px-2.5 py-1 text-xs font-bold uppercase rounded-full
-                                                    ${selectedAd.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                                        selectedAd.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                                    ${selectedAd.tipo === 'DOACAO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
+                                                        selectedAd.tipo === 'EMPRESTIMO' ? 'bg-brand-lavender/30 text-brand-deep' :
                                                             'bg-orange-100 text-orange-700'}`}>
                                                     {selectedAd.tipo}
                                                 </span>
@@ -351,7 +351,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
 
                                                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
                                                 }}
-                                                className="p-2 hover:bg-green-50 text-green-600 rounded-full transition"
+                                                className="p-2 hover:bg-brand-lavender/10 text-brand-deep rounded-full transition"
                                                 title="Compartilhar no WhatsApp"
                                             >
                                                 <Share2 className="h-6 w-6" />
@@ -373,7 +373,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                 </p>
                                                 <div className="mt-2 flex items-center text-sm bg-slate-50 p-2 rounded w-fit">
                                                     {selectedAd.logistica === 'ENTREGA' ? (
-                                                        <> <Truck className="h-4 w-4 mr-2 text-green-600" /> <span className="text-green-700 font-medium">Entrega Disponível</span> </>
+                                                        <> <Truck className="h-4 w-4 mr-2 text-brand-deep" /> <span className="text-brand-deep font-medium">Entrega Disponível</span> </>
                                                     ) : (
                                                         <> <MapPin className="h-4 w-4 mr-2 text-slate-500" /> <span className="text-slate-700">Retirada no Local</span> </>
                                                     )}
@@ -392,17 +392,17 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
 
                                         <div className="space-y-4">
                                             {selectedAd.tipo === 'EMPRESTIMO' && (
-                                                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                                                    <h4 className="text-purple-800 font-semibold flex items-center gap-2 mb-2">
+                                                <div className="bg-brand-lavender/20 p-4 rounded-lg border border-brand-lavender/30">
+                                                    <h4 className="text-brand-ink font-semibold flex items-center gap-2 mb-2">
                                                         <Calendar className="h-4 w-4" />
                                                         Prazo de Devolução
                                                     </h4>
-                                                    <p className="text-purple-700">{new Date(selectedAd.prazo_devolucao).toLocaleDateString()}</p>
+                                                    <p className="text-brand-deep">{new Date(selectedAd.prazo_devolucao).toLocaleDateString()}</p>
                                                 </div>
                                             )}
 
                                             {selectedAd.tipo === 'PERMUTA' && (
-                                                <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                                <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
                                                     <h4 className="text-orange-800 font-semibold flex items-center gap-2 mb-2">
                                                         <RefreshCw className="h-4 w-4" />
                                                         Interesse em Troca
@@ -426,7 +426,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                             </div>
                                         ) : (
                                             <Button
-                                                className="flex-1 bg-green-600 hover:bg-green-700 gap-2 h-12 text-lg"
+                                                className="flex-1 bg-brand-deep hover:bg-brand-royal gap-2 h-12 text-lg"
                                                 onClick={async () => {
                                                     try {
                                                         setLoading(true)
@@ -474,7 +474,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                         O fornecedor foi notificado. Entre em contato agora para combinar a {selectedAd.logistica === 'ENTREGA' ? 'entrega' : 'retirada'}.
                                     </p>
 
-                                    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-left max-w-lg mx-auto mb-8">
+                                    <div className="bg-brand-lavender/10 p-6 rounded-lg border border-brand-lavender/30 text-left max-w-lg mx-auto mb-8">
                                         <h3 className="font-semibold text-lg mb-4 text-slate-800">Próximos Passos</h3>
                                         <ul className="space-y-4">
                                             <li className="flex items-start gap-3">
@@ -499,7 +499,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                             </li>
                                             <li className="flex items-start gap-3">
                                                 <div className="bg-white p-2 rounded shadow-sm">
-                                                    <MapPin className="h-5 w-5 text-indigo-600" />
+                                                    <MapPin className="h-5 w-5 text-brand-deep" />
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-slate-900">Endereço de Retirada</p>

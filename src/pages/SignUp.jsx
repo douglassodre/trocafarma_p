@@ -173,8 +173,8 @@ const SignUp = () => {
 
     if (signupComplete) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="max-w-md w-full space-y-6 p-8 bg-white shadow rounded-xl text-center">
+            <div className="min-h-screen flex items-center justify-center bg-brand-mist px-4">
+                <div className="max-w-md w-full space-y-6 p-8 bg-white shadow rounded-lg text-center border border-brand-lavender/40">
                     <div className="flex justify-center">
                         <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
                     </div>
@@ -185,12 +185,12 @@ const SignUp = () => {
                             Confirme seu cadastro pelo link recebido antes de acessar sua conta.
                         </p>
                     </div>
-                    <div className="rounded-md bg-indigo-50 p-4 text-sm text-indigo-800">
+                    <div className="rounded-md bg-brand-lavender/20 p-4 text-sm text-brand-ink">
                         Se não encontrar a mensagem, verifique também a caixa de spam ou lixo eletrônico.
                     </div>
                     <Link
                         to="/signin"
-                        className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                        className="inline-flex w-full justify-center rounded-md bg-brand-deep px-4 py-2 text-sm font-medium text-white hover:bg-brand-royal"
                     >
                         Ir para login
                     </Link>
@@ -200,8 +200,8 @@ const SignUp = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl relative">
+        <div className="min-h-screen flex items-center justify-center bg-brand-mist px-4">
+            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-lg relative border border-brand-lavender/40">
                 <button
                     onClick={() => navigate('/')}
                     className="absolute top-4 left-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
@@ -224,7 +224,7 @@ const SignUp = () => {
                                     name="cpf"
                                     type="text"
                                     required
-                                    className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                     placeholder="000.000.000-00"
                                     value={formData.cpf}
                                     onChange={handleChange}
@@ -241,7 +241,7 @@ const SignUp = () => {
                                 type="text"
                                 required
                                 readOnly
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 bg-gray-100 cursor-not-allowed focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 bg-brand-mist cursor-not-allowed focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                 value={formData.name}
                             />
                             <p className="mt-1 text-xs text-gray-500">Preenchido automaticamente verifique o CPF.</p>
@@ -254,7 +254,7 @@ const SignUp = () => {
                                 type="text"
                                 required
                                 placeholder="(00) 00000-0000"
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                 value={formData.whatsapp}
                                 onChange={handlePhoneChange}
                             />
@@ -267,7 +267,7 @@ const SignUp = () => {
                                     name="cnpj"
                                     type="text"
                                     required
-                                    className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                     placeholder="00.000.000/0000-00"
                                     value={formData.cnpj}
                                     onChange={handleChange}
@@ -296,7 +296,7 @@ const SignUp = () => {
                                 name="email"
                                 type="email"
                                 required
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                 value={formData.email}
                                 onChange={handleChange}
                             />
@@ -308,7 +308,7 @@ const SignUp = () => {
                                 name="password"
                                 type="password"
                                 required
-                                className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                className="appearance-none rounded relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep sm:text-sm"
                                 value={formData.password}
                                 onChange={handleChange}
                             />
@@ -319,7 +319,7 @@ const SignUp = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-brand-deep hover:bg-brand-royal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-periwinkle disabled:opacity-50"
                         >
                             {loading ? 'Cadastrando...' : 'Criar Conta'}
                         </button>

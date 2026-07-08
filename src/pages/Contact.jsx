@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, Send, CheckCircle } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 const Contact = () => {
     const [formData, setFormData] = useState({
@@ -30,24 +31,22 @@ const Contact = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+        <div className="min-h-screen bg-brand-mist font-sans text-brand-ink">
             <Helmet>
                 <title>Fale Conosco | Trocafarma</title>
                 <meta name="description" content="Entre em contato com a equipe da Trocafarma. Envie suas dúvidas, sugestões ou relatos." />
             </Helmet>
 
             {/* Header */}
-            <header className="bg-white shadow-sm sticky top-0 z-50">
+            <header className="bg-white shadow-sm border-b border-brand-lavender/30 sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <Link to="/" className="flex items-center space-x-2 group">
-                            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center group-hover:bg-green-700 transition-colors">
-                                <span className="text-white font-bold text-xl">T</span>
-                            </div>
-                            <span className="text-xl font-bold tracking-tight text-gray-800 group-hover:text-green-800 transition-colors">Trocafarma</span>
+                            <img src={logo} alt="Trocafarma" className="h-9 w-9 object-contain" />
+                            <span className="text-xl font-bold tracking-tight text-brand-ink group-hover:text-brand-deep transition-colors">Trocafarma</span>
                         </Link>
                     </div>
-                    <Link to="/" className="text-sm font-medium text-gray-600 hover:text-green-600 flex items-center transition-colors">
+                    <Link to="/" className="text-sm font-medium text-gray-600 hover:text-brand-deep flex items-center transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-1" />
                         Voltar para o Início
                     </Link>
@@ -55,7 +54,7 @@ const Contact = () => {
             </header>
 
             <main className="max-w-4xl mx-auto px-6 py-12">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-12">
+                <div className="bg-white rounded-lg shadow-sm border border-brand-lavender/30 p-8 md:p-12">
                     <div className="text-center mb-10">
                         <h1 className="text-3xl font-bold text-gray-900 mb-4">Fale Conosco</h1>
                         <p className="text-gray-600 max-w-2xl mx-auto">
@@ -66,25 +65,25 @@ const Contact = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                         {/* Contact Info */}
                         <div className="md:col-span-1 space-y-6">
-                            <div className="bg-green-50 p-6 rounded-xl border border-green-100 h-full">
-                                <h2 className="text-lg font-bold text-green-900 mb-4">Canais de Atendimento</h2>
+                            <div className="bg-brand-lavender/20 p-6 rounded-lg border border-brand-periwinkle/20 h-full">
+                                <h2 className="text-lg font-bold text-brand-ink mb-4">Canais de Atendimento</h2>
 
                                 <div className="space-y-4">
                                     <div className="flex items-start">
                                         <div className="bg-white p-2 rounded-lg shadow-sm mr-3">
-                                            <Mail className="w-5 h-5 text-green-600" />
+                                            <Mail className="w-5 h-5 text-brand-deep" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Email</p>
-                                            <a href="mailto:contato@trocafarma.com" className="text-gray-700 hover:text-green-600 font-medium break-all">
+                                            <p className="text-xs font-semibold text-brand-deep uppercase tracking-wide">Email</p>
+                                            <a href="mailto:contato@trocafarma.com" className="text-sm text-gray-700 hover:text-brand-deep font-medium break-words">
                                                 contato@trocafarma.com
                                             </a>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-8 pt-8 border-t border-green-100">
-                                    <p className="text-sm text-green-800 leading-relaxed">
+                                <div className="mt-8 pt-8 border-t border-brand-periwinkle/20">
+                                    <p className="text-sm text-brand-ink leading-relaxed">
                                         Nosso time de suporte está disponível de segunda a sexta, das 09h às 18h.
                                     </p>
                                 </div>
@@ -104,7 +103,7 @@ const Contact = () => {
                                     </p>
                                     <button
                                         onClick={() => setIsSubmitted(false)}
-                                        className="mt-6 text-green-600 font-bold hover:underline text-sm"
+                                        className="mt-6 text-brand-deep font-bold hover:underline text-sm"
                                     >
                                         Enviar outra mensagem
                                     </button>
@@ -120,7 +119,7 @@ const Contact = () => {
                                             value={formData.name}
                                             onChange={handleChange}
                                             required
-                                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow outline-none"
+                                            className="w-full px-4 py-3 rounded-lg border border-brand-lavender/60 focus:ring-2 focus:ring-brand-periwinkle focus:border-transparent transition-shadow outline-none"
                                             placeholder="Seu nome"
                                         />
                                     </div>
@@ -134,7 +133,7 @@ const Contact = () => {
                                             value={formData.email}
                                             onChange={handleChange}
                                             required
-                                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow outline-none"
+                                            className="w-full px-4 py-3 rounded-lg border border-brand-lavender/60 focus:ring-2 focus:ring-brand-periwinkle focus:border-transparent transition-shadow outline-none"
                                             placeholder="seu@email.com"
                                         />
                                     </div>
@@ -147,7 +146,7 @@ const Contact = () => {
                                             value={formData.subject}
                                             onChange={handleChange}
                                             required
-                                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow outline-none bg-white"
+                                            className="w-full px-4 py-3 rounded-lg border border-brand-lavender/60 focus:ring-2 focus:ring-brand-periwinkle focus:border-transparent transition-shadow outline-none bg-white"
                                         >
                                             <option value="" disabled>Selecione um assunto</option>
                                             <option value="duvida">Dúvida</option>
@@ -166,14 +165,14 @@ const Contact = () => {
                                             onChange={handleChange}
                                             required
                                             rows="5"
-                                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-shadow outline-none resize-none"
+                                            className="w-full px-4 py-3 rounded-lg border border-brand-lavender/60 focus:ring-2 focus:ring-brand-periwinkle focus:border-transparent transition-shadow outline-none resize-none"
                                             placeholder="Como podemos ajudar?"
                                         ></textarea>
                                     </div>
 
                                     <button
                                         type="submit"
-                                        className="w-full bg-green-600 text-white font-bold py-4 rounded-lg hover:bg-green-700 transition-colors shadow-md flex items-center justify-center"
+                                        className="w-full bg-brand-deep text-white font-bold py-4 rounded-lg hover:bg-brand-royal transition-colors shadow-md flex items-center justify-center"
                                     >
                                         <Send className="w-5 h-5 mr-2" />
                                         Enviar Mensagem

@@ -76,7 +76,7 @@ const Autocomplete = ({
                 </div>
                 <input
                     type="text"
-                    className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none pl-10 pr-10"
+                    className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle outline-none pl-10 pr-10"
                     placeholder={placeholder}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -86,7 +86,7 @@ const Autocomplete = ({
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                     {loading ? (
-                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                        <Loader2 className="h-4 w-4 text-brand-periwinkle animate-spin" />
                     ) : query ? (
                         <button
                             type="button"
@@ -105,7 +105,7 @@ const Autocomplete = ({
                         results.map((item, index) => (
                             <li
                                 key={index}
-                                className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-blue-50 text-gray-900"
+                                className="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-brand-lavender/20 text-gray-900"
                                 onClick={() => handleSelect(item)}
                             >
                                 <div className="flex items-center">

@@ -294,7 +294,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-deep"></div>
         </div>
     )
 
@@ -307,7 +307,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                     <div className="flex items-center space-x-4 w-full sm:w-auto">
                         <button
                             onClick={() => navigate('/')}
-                            className="bg-white p-2 rounded-full shadow-sm text-gray-600 hover:text-indigo-600 hover:shadow-md transition"
+                            className="bg-white p-2 rounded-full shadow-sm text-gray-600 hover:text-brand-deep hover:shadow-md transition"
                             title="Voltar para Início"
                         >
                             <ArrowLeft className="h-6 w-6" />
@@ -319,7 +319,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                     </div>
                     <button
                         onClick={() => navigate('/novo-anuncio')}
-                        className="flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-indigo-700 transition w-full sm:w-auto justify-center"
+                        className="flex items-center space-x-2 bg-brand-deep text-white px-5 py-2.5 rounded-lg shadow hover:bg-brand-royal transition w-full sm:w-auto justify-center"
                     >
                         <Plus className="h-5 w-5" />
                         <span>Criar Novo Anúncio</span>
@@ -328,13 +328,13 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
 
                 <div className="flex border-b border-gray-200 mb-8">
                     <button
-                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'ofertas' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'ofertas' ? 'border-brand-deep text-brand-deep' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                         onClick={() => setActiveTab('ofertas')}
                     >
                         Minhas Ofertas (Doações/Empréstimos/Vendas)
                     </button>
                     <button
-                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'urgencias' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`py-3 px-6 font-medium text-sm border-b-2 transition-colors ${activeTab === 'urgencias' ? 'border-brand-deep text-brand-deep' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
                         onClick={() => setActiveTab('urgencias')}
                     >
                         Minhas Urgências (Rupturas)
@@ -344,14 +344,14 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                 {activeTab === 'ofertas' ? (
                     ads.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
-                            <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Package className="h-10 w-10 text-indigo-500" />
+                            <div className="bg-brand-lavender/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Package className="h-10 w-10 text-brand-periwinkle" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">Você ainda não tem anúncios</h3>
                             <p className="text-gray-500 max-w-md mx-auto mb-8">Comece a compartilhar medicamentos e itens da sua farmácia com outras instituições parceiras.</p>
                             <button
                                 onClick={() => navigate('/novo-anuncio')}
-                                className="inline-flex items-center space-x-2 text-indigo-600 font-semibold hover:text-indigo-700 hover:underline"
+                                className="inline-flex items-center space-x-2 text-brand-deep font-semibold hover:text-brand-royal hover:underline"
                             >
                                 <span>Criar meu primeiro anúncio</span>
                                 <ArrowLeft className="h-4 w-4 rotate-180" />
@@ -388,12 +388,12 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                     }}>
                                         <div className="flex justify-between items-start mb-4">
                                             <span className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1
-                                            ${ad.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-700' :
-                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-purple-100 text-purple-700' :
+                                            ${ad.tipo === 'DOACAO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
+                                                    ad.tipo === 'EMPRESTIMO' ? 'bg-brand-lavender/30 text-brand-deep' :
                                                         'bg-orange-100 text-orange-700'}`}>
                                                 <span className={`w-1.5 h-1.5 rounded-full 
-                                                 ${ad.tipo === 'DOACAO' ? 'bg-blue-500' :
-                                                        ad.tipo === 'EMPRESTIMO' ? 'bg-purple-500' :
+                                                 ${ad.tipo === 'DOACAO' ? 'bg-brand-periwinkle' :
+                                                        ad.tipo === 'EMPRESTIMO' ? 'bg-brand-periwinkle' :
                                                             'bg-orange-500'}`}
                                                 />
                                                 {ad.tipo}
@@ -573,13 +573,13 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                             ) : (
                                 <div className="space-y-4">
                                     {selectedAd.transacoes.map(tx => (
-                                        <div key={tx.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition">
+                                        <div key={tx.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-brand-lavender/60 transition">
                                             <div className="flex flex-col sm:flex-row justify-between gap-4">
                                                 <div className="space-y-2 flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`px-2 py-0.5 rounded text-xs font-bold
                                                             ${tx.status === 'SOLICITADO' || tx.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-700' :
-                                                                tx.status === 'EM_ANDAMENTO' ? 'bg-blue-100 text-blue-700' :
+                                                                tx.status === 'EM_ANDAMENTO' ? 'bg-brand-periwinkle/20 text-brand-royal' :
                                                                     tx.status === 'EM_TRANSITO' ? 'bg-orange-100 text-orange-700' :
                                                                         tx.status === 'CONCLUIDO' ? 'bg-green-100 text-green-700' :
                                                                             'bg-red-100 text-red-700'}`}>
@@ -604,7 +604,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
 
                                                     {/* Financial Summary for Pending Match Transactions */}
                                                     {tx.status === 'PENDENTE' && selectedAd.status === 'RESERVADO_MATCH' && (
-                                                        <div className="mt-2 bg-gray-50 p-3 rounded-lg border border-indigo-100 text-sm">
+                                                        <div className="mt-2 bg-gray-50 p-3 rounded-lg border border-brand-lavender/40 text-sm">
                                                             <h5 className="font-bold text-gray-700 mb-2 border-b border-gray-200 pb-1">Resumo da Transação</h5>
                                                             <div className="grid grid-cols-2 gap-y-1 gap-x-4">
                                                                 <span className="text-gray-500">Valor Unitário:</span>
@@ -617,7 +617,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                                 <span className="text-right font-medium text-orange-600">
                                                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(((selectedAd.preco_unitario || 0) * tx.quantidade) * 0.10)}
                                                                 </span>
-                                                                <div className="col-span-2 border-t border-gray-200 mt-1 pt-1 flex justify-between font-bold text-indigo-700">
+                                                                <div className="col-span-2 border-t border-gray-200 mt-1 pt-1 flex justify-between font-bold text-brand-royal">
                                                                     <span>Total Solicitante:</span>
                                                                     <span>
                                                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
@@ -639,7 +639,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                         <>
                                                             <button
                                                                 onClick={() => handleApprove(tx.id, selectedAd.id)}
-                                                                className="w-full py-1.5 px-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+                                                                className="w-full py-1.5 px-3 bg-brand-deep text-white text-sm font-medium rounded-lg hover:bg-brand-royal transition"
                                                             >
                                                                 Aprovar
                                                             </button>

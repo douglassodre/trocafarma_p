@@ -38,11 +38,11 @@ const Sidebar = () => {
     }
 
     return (
-        <aside className="hidden h-screen w-64 flex-col border-r border-slate-200 bg-white md:flex fixed top-0 left-0">
-            <div className="flex h-14 items-center border-b border-slate-200 px-6">
+        <aside className="hidden h-screen w-64 flex-col border-r border-brand-lavender/40 bg-white md:flex fixed top-0 left-0">
+            <div className="flex h-14 items-center border-b border-brand-lavender/40 px-6">
                 <Link to="/" className="flex items-center gap-2 font-semibold">
-                    <img src={logo} alt="Trocafarma" className="h-8 w-8 object-contain" />
-                    <span className="text-lg font-bold text-slate-900">TrocaFarma</span>
+                    <img src={logo} alt="Trocafarma" className="h-9 w-9 object-contain" />
+                    <span className="text-lg font-bold text-brand-ink">TrocaFarma</span>
                 </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-4">
@@ -55,8 +55,8 @@ const Sidebar = () => {
                                 key={index}
                                 to={item.path}
                                 className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-slate-500 transition-all hover:text-slate-900 hover:bg-slate-100",
-                                    isActive && "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 text-slate-500 transition-all hover:text-brand-ink hover:bg-brand-lavender/10",
+                                    isActive && "bg-brand-lavender/20 text-brand-deep hover:bg-brand-lavender/30 hover:text-brand-ink"
                                 )}
                             >
                                 <Icon className="h-4 w-4" />
@@ -66,7 +66,7 @@ const Sidebar = () => {
                     })}
                 </nav>
             </div>
-            <div className="border-t border-slate-200 p-4">
+            <div className="border-t border-brand-lavender/40 p-4">
                 <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-all hover:bg-red-50"

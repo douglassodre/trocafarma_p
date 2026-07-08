@@ -214,7 +214,7 @@ const DeliveryConfirmationModal = () => {
                                             Origem: {delivery.anuncios?.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                         </p>
                                     </div>
-                                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                                    <span className="bg-brand-periwinkle/20 text-brand-royal text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
                                         <Truck className="h-3 w-3" />
                                         Em Trânsito
                                     </span>

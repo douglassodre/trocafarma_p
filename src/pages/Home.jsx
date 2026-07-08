@@ -132,10 +132,10 @@ const Home = () => {
         }
     }
 
-    if (!user || !userProfile) return <div className="p-8 flex items-center justify-center min-h-screen text-gray-500">Carregando...</div>
+    if (!user || !userProfile) return <div className="p-8 flex items-center justify-center min-h-screen text-gray-500 bg-brand-mist">Carregando...</div>
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-brand-mist">
             {/* Response Modal */}
             {responseModalId && (
                 <UrgencyResponseModal
@@ -145,7 +145,7 @@ const Home = () => {
                 />
             )}
 
-            <header className="bg-white shadow-sm border-b border-gray-100">
+            <header className="bg-white shadow-sm border-b border-brand-lavender/30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                         <img src={logo} alt="Trocafarma" className="h-10 w-10 object-contain" />
@@ -154,7 +154,7 @@ const Home = () => {
                     <div className="flex items-center space-x-6">
                         <button
                             onClick={() => navigate('/meus-anuncios')}
-                            className="flex items-center space-x-2 text-sm font-medium text-gray-500 hover:text-indigo-600 transition group"
+                            className="flex items-center space-x-2 text-sm font-medium text-gray-500 hover:text-brand-deep transition group"
                         >
                             <LayoutList className="h-5 w-5 group-hover:scale-110 transition-transform" />
                             <span>Meus Anúncios</span>
@@ -185,17 +185,17 @@ const Home = () => {
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Welcome Hero */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 mb-8 text-white relative overflow-hidden">
+                <div className="bg-gradient-to-r from-brand-deep via-brand-royal to-brand-periwinkle rounded-lg shadow-lg p-8 mb-8 text-white relative overflow-hidden">
                     <div className="relative z-10 flex flex-col sm:flex-row justify-between items-center">
                         <div className="mb-6 sm:mb-0">
                             <h2 className="text-3xl font-bold mb-2">Bem-vindo ao Painel</h2>
-                            <p className="text-indigo-100 max-w-xl mb-4">
+                            <p className="text-brand-lavender max-w-xl mb-4">
                                 Sua instituição <span className="font-semibold text-white">{userProfile.instituicoes?.nome_fantasia}</span> está ativa e pronta para conectar.
                             </p>
                         </div>
                         <button
                             onClick={() => navigate('/novo-anuncio')}
-                            className="flex items-center space-x-2 bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold shadow-md hover:bg-gray-50 hover:shadow-xl transition transform hover:-translate-y-1"
+                            className="flex items-center space-x-2 bg-white text-brand-deep px-6 py-3 rounded-lg font-bold shadow-md hover:bg-brand-mist hover:shadow-xl transition transform hover:-translate-y-1"
                         >
                             <PlusCircle className="h-5 w-5" />
                             <span>Novo Anúncio</span>
@@ -203,14 +203,13 @@ const Home = () => {
                     </div>
 
                     {/* Decorative Circles */}
-                    <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-indigo-900 opacity-20 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 h-1 w-full bg-brand-lavender/40"></div>
                 </div>
 
                 {/* --- KPI Section --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100 flex items-center space-x-4">
-                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-emerald-100 flex items-center space-x-4">
+                        <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
                             <TrendingUp className="h-8 w-8" />
                         </div>
                         <div>
@@ -221,18 +220,18 @@ const Home = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex items-center space-x-4">
-                        <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-brand-lavender/30 flex items-center space-x-4">
+                        <div className="p-3 bg-brand-lavender/20 rounded-lg text-brand-deep">
                             <Activity className="h-8 w-8" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-blue-600 mb-1">Itens Movimentados</p>
+                            <p className="text-sm font-medium text-brand-deep mb-1">Itens Movimentados</p>
                             <h3 className="text-2xl font-bold text-gray-900">{kpis.itemsMoved}</h3>
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center space-x-4">
-                        <div className="p-3 bg-orange-50 rounded-xl text-orange-600">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-orange-100 flex items-center space-x-4">
+                        <div className="p-3 bg-orange-50 rounded-lg text-orange-600">
                             <ShieldCheck className="h-8 w-8" />
                         </div>
                         <div>
@@ -249,12 +248,12 @@ const Home = () => {
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                <Truck className="h-6 w-6 text-indigo-600" />
+                                <Truck className="h-6 w-6 text-brand-deep" />
                                 Entregas em Andamento
                             </h2>
                             <button
                                 onClick={() => navigate('/minhas-solicitacoes')}
-                                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                                className="text-sm font-medium text-brand-deep hover:text-brand-royal flex items-center gap-1"
                             >
                                 Ver todas <ArrowRight className="h-4 w-4" />
                             </button>
@@ -262,9 +261,9 @@ const Home = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {inTransitItems.map(item => (
-                                <div key={item.id} className="bg-white p-5 rounded-xl shadow-sm border border-l-4 border-l-blue-500 border-gray-100 hover:shadow-md transition">
+                                <div key={item.id} className="bg-white p-5 rounded-lg shadow-sm border border-l-4 border-l-brand-deep border-brand-lavender/30 hover:shadow-md transition">
                                     <div className="flex justify-between items-start mb-2">
-                                        <div className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">
+                                        <div className="bg-brand-lavender/20 text-brand-deep px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">
                                             Em Trânsito
                                         </div>
                                         <span className="text-xs text-gray-400 font-mono">#{item.id.slice(0, 8)}</span>
@@ -278,7 +277,7 @@ const Home = () => {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => navigate('/minhas-solicitacoes')}
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition"
+                                            className="w-full bg-brand-deep hover:bg-brand-royal text-white text-sm font-medium py-2 rounded-lg transition"
                                         >
                                             Confirmar Recebimento
                                         </button>
@@ -294,11 +293,11 @@ const Home = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div
                         onClick={() => navigate('/meus-anuncios')}
-                        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group"
+                        className="bg-white p-6 rounded-lg shadow-sm border border-brand-lavender/30 hover:shadow-md transition cursor-pointer group"
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <div className="bg-blue-50 p-3 rounded-lg group-hover:bg-blue-100 transition">
-                                <LayoutList className="h-6 w-6 text-blue-600" />
+                            <div className="bg-brand-lavender/20 p-3 rounded-lg group-hover:bg-brand-lavender/30 transition">
+                                <LayoutList className="h-6 w-6 text-brand-deep" />
                             </div>
                             <span className="text-gray-400 text-sm">Gerenciar</span>
                         </div>
@@ -309,11 +308,11 @@ const Home = () => {
 
                     <div
                         onClick={() => navigate('/minhas-solicitacoes')}
-                        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group"
+                        className="bg-white p-6 rounded-lg shadow-sm border border-brand-lavender/30 hover:shadow-md transition cursor-pointer group"
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <div className="bg-indigo-50 p-3 rounded-lg group-hover:bg-indigo-100 transition">
-                                <Package className="h-6 w-6 text-indigo-600" />
+                            <div className="bg-brand-periwinkle/20 p-3 rounded-lg group-hover:bg-brand-periwinkle/30 transition">
+                                <Package className="h-6 w-6 text-brand-deep" />
                             </div>
                             <span className="text-gray-400 text-sm">Acompanhar</span>
                         </div>
@@ -323,7 +322,7 @@ const Home = () => {
 
                     <div
                         onClick={() => navigate('/relatorio')}
-                        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group"
+                        className="bg-white p-6 rounded-lg shadow-sm border border-brand-lavender/30 hover:shadow-md transition cursor-pointer group"
                     >
                         <div className="flex items-center justify-between mb-4">
                             <div className="bg-emerald-50 p-3 rounded-lg group-hover:bg-emerald-100 transition">

@@ -56,10 +56,10 @@ const LandingPage = () => {
                             <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Disponível em Salvador e Bahia</span>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-gray-900">
-                            Revolucione a <span className="text-green-600">Logística Hospitalar</span> e Reduza Custos.
+                            Conectando estoques. Preservando vidas
                         </h1>
                         <p className="text-lg md:text-xl text-gray-600 max-w-lg leading-relaxed">
-                            A plataforma líder para hospitais inteligentes. Conectamos estoques, evitamos desperdícios e maximizamos a eficiência da sua gestão de suprimentos.
+                            Acreditamos que nenhum medicamento em boas condições deveria ser perdido por falta de conexão entre quem possui disponibilidade e quem precisa. Nossa missão é transformar a gestão de estoques em um processo mais inteligente, colaborativo e sustentável, reduzindo desperdícios, preservando recursos e contribuindo para uma saúde mais eficiente. Porque, quando conectamos estoques, preservamos vidas.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Link to="/signup" className="inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white transition-all duration-200 bg-green-600 border border-transparent rounded-full shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 hover:scale-105">

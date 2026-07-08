@@ -66,14 +66,14 @@ const SignIn = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 relative">
+        <div className="min-h-screen flex items-center justify-center bg-brand-mist relative px-4">
             {!adminHost && (
-                <Link to="/" className="absolute top-4 left-4 flex items-center text-indigo-600 hover:text-indigo-500 font-medium">
+                <Link to="/" className="absolute top-4 left-4 flex items-center text-brand-deep hover:text-brand-royal font-medium">
                     <ArrowLeft className="h-5 w-5 mr-2" />
                     Voltar para o site
                 </Link>
             )}
-            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-xl">
+            <div className="max-w-md w-full space-y-8 p-8 bg-white shadow rounded-lg border border-brand-lavender/40">
                 <div>
                     <div className="flex justify-center mb-4">
                         <img src={logo} alt="Trocafarma" className="h-16 w-16 object-contain" />
@@ -84,7 +84,7 @@ const SignIn = () => {
                     {!adminHost && (
                         <p className="mt-2 text-center text-sm text-gray-600">
                             Ou{' '}
-                            <Link to={`/signup?${searchParams.toString()}`} className="font-medium text-indigo-600 hover:text-indigo-500">
+                            <Link to={`/signup?${searchParams.toString()}`} className="font-medium text-brand-deep hover:text-brand-royal">
                                 crie uma nova conta
                             </Link>
                         </p>
@@ -105,7 +105,7 @@ const SignIn = () => {
                             <input
                                 type="email"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep focus:z-10 sm:text-sm"
                                 placeholder="Email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -116,14 +116,14 @@ const SignIn = () => {
                             <input
                                 type="password"
                                 required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-brand-lavender/60 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-brand-periwinkle focus:border-brand-deep focus:z-10 sm:text-sm"
                                 placeholder="Senha"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
                         <div className="text-right">
-                            <Link to="/forgot-password" className="font-medium text-sm text-indigo-600 hover:text-indigo-500">
+                            <Link to="/forgot-password" className="font-medium text-sm text-brand-deep hover:text-brand-royal">
                                 Esqueceu sua senha?
                             </Link>
                         </div>
@@ -133,7 +133,7 @@ const SignIn = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-brand-deep hover:bg-brand-royal focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-periwinkle disabled:opacity-50"
                         >
                             {loading ? 'Entrando...' : 'Entrar'}
                         </button>
