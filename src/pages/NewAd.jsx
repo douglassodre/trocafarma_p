@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -63,13 +63,6 @@ function buildStatusCaption(formData) {
 
     lines.push('', 'Tenho interesse? Acesse o TrocaFarma.')
     return lines.join('\n')
-}
-
-const STORAGE_PUBLIC_PREFIX = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/anuncios-fotos/`
-
-function getStoragePathFromPublicUrl(photoUrl) {
-    if (!photoUrl?.startsWith(STORAGE_PUBLIC_PREFIX)) return null
-    return decodeURIComponent(photoUrl.slice(STORAGE_PUBLIC_PREFIX.length))
 }
 
 function formatMonthYear(value) {
@@ -154,19 +147,13 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 4) {
 function loadCanvasImage(src) {
     return new Promise((resolve, reject) => {
         const image = new Image()
+        if (typeof src === 'string' && /^https?:\/\//i.test(src)) {
+            image.crossOrigin = 'anonymous'
+        }
         image.onload = () => resolve(image)
         image.onerror = reject
         image.src = src
     })
-}
-
-async function loadFileImage(file) {
-    const objectUrl = URL.createObjectURL(file)
-    try {
-        return await loadCanvasImage(objectUrl)
-    } finally {
-        URL.revokeObjectURL(objectUrl)
-    }
 }
 
 function canvasToJpegBlob(canvas) {
@@ -178,10 +165,9 @@ function canvasToJpegBlob(canvas) {
     })
 }
 
-async function buildStatusTemplateImage(file, formData) {
-    const productImage = await loadFileImage(file)
+async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
+    const productImage = imageSrc ? await loadCanvasImage(imageSrc) : null
     const logoImage = await loadCanvasImage(logoImageUrl)
-    const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
 
     if (!ctx) throw new Error('Canvas indisponivel')
@@ -241,7 +227,16 @@ async function buildStatusTemplateImage(file, formData) {
     ctx.clip()
     ctx.fillStyle = '#f8fafc'
     ctx.fillRect(172, 382, 736, 376)
-    drawContainedImage(ctx, productImage, 190, 400, 700, 340)
+    if (productImage) {
+        drawContainedImage(ctx, productImage, 190, 400, 700, 340)
+    } else {
+        ctx.drawImage(logoImage, 430, 455, 220, 220)
+        ctx.fillStyle = '#64748b'
+        ctx.font = '34px Arial, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('Sem foto do item', 540, 710)
+        ctx.textAlign = 'left'
+    }
     ctx.restore()
 
     ctx.fillStyle = '#111827'
@@ -283,13 +278,14 @@ async function buildStatusTemplateImage(file, formData) {
     ctx.fillText('Anuncie gratuitamente pelo TrocaFarma', 540, 1310)
     ctx.textAlign = 'left'
 
-    return canvasToJpegBlob(canvas)
+    return canvas
 }
 
 const NewAd = () => {
     const { user, userProfile } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
+    const statusPreviewCanvasRef = useRef(null)
 
     const [loading, setLoading] = useState(false)
     const [blockingCheckLoading, setBlockingCheckLoading] = useState(true)
@@ -325,9 +321,11 @@ const NewAd = () => {
     const [editingId, setEditingId] = useState(null)
 
     // Image Upload State
-    const [selectedImage, setSelectedImage] = useState(null)
     const [previewUrl, setPreviewUrl] = useState(null)
     const [uploadingImage, setUploadingImage] = useState(false)
+    const [previewReady, setPreviewReady] = useState(false)
+    const [previewError, setPreviewError] = useState('')
+    const [previewApproved, setPreviewApproved] = useState(false)
 
     // 1. Verificação de Bloqueio & Auth & Geolocation & Edit Mode
     useEffect(() => {
@@ -397,6 +395,58 @@ const NewAd = () => {
         checkBlocking()
     }, [user, navigate, location.state])
 
+    useEffect(() => {
+        setPreviewApproved(false)
+    }, [
+        formData.description,
+        formData.expirationDate,
+        formData.batch,
+        formData.quantity,
+        formData.type,
+        formData.logistics,
+        formData.cidade,
+        formData.estado,
+        previewUrl,
+    ])
+
+    useEffect(() => {
+        let cancelled = false
+
+        if (!previewUrl || !statusPreviewCanvasRef.current) {
+            setPreviewReady(false)
+            setPreviewError('')
+            return undefined
+        }
+
+        setPreviewReady(false)
+        setPreviewError('')
+
+        drawStatusTemplatePreview(statusPreviewCanvasRef.current, {
+            imageSrc: previewUrl,
+            formData,
+        }).then(() => {
+            if (!cancelled) setPreviewReady(true)
+        }).catch((err) => {
+            console.error('Erro ao montar preview do status:', err)
+            if (!cancelled) {
+                setPreviewError('Nao foi possivel montar a previa da imagem.')
+                setPreviewReady(false)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [previewUrl, formData])
+
+    useEffect(() => {
+        return () => {
+            if (previewUrl?.startsWith('blob:')) {
+                URL.revokeObjectURL(previewUrl)
+            }
+        }
+    }, [previewUrl])
+
     const getLocation = () => {
         if (!navigator.geolocation) {
             setLocationError('Geolocalização não é suportada pelo seu navegador.')
@@ -443,7 +493,6 @@ const NewAd = () => {
     const handleImageChange = (e) => {
         const file = e.target.files[0]
         if (file) {
-            setSelectedImage(file)
             const objectUrl = URL.createObjectURL(file)
             setPreviewUrl(objectUrl)
         }
@@ -498,6 +547,12 @@ const NewAd = () => {
             return
         }
 
+        if (!previewApproved) {
+            setFeedback('Aprove a previa do WhatsApp antes de salvar o anuncio.')
+            setLoading(false)
+            return
+        }
+
         // Validations
         const today = new Date().toISOString().split('T')[0]
         if (formData.expirationDate < today) {
@@ -540,11 +595,15 @@ const NewAd = () => {
             let finalPhotoUrl = null
             let finalPhotoPath = null
 
-            // Upload Image if selected
-            if (selectedImage) {
+            // Upload the exact preview approved by the user when the post has media.
+            if (previewUrl) {
                 setUploadingImage(true)
                 try {
-                    const processedBlob = await buildStatusTemplateImage(selectedImage, formData)
+                    if (!statusPreviewCanvasRef.current || !previewReady) {
+                        throw new Error('Preview ainda nao esta pronto')
+                    }
+
+                    const processedBlob = await canvasToJpegBlob(statusPreviewCanvasRef.current)
                     const fileExt = 'jpg' // We converted to jpeg
                     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
                     const filePath = `${user.id}/${fileName}`
@@ -572,10 +631,6 @@ const NewAd = () => {
                     return
                 }
                 setUploadingImage(false)
-            } else if (isEditMode && previewUrl && previewUrl.startsWith('http')) {
-                // Keep existing URL if edit mode and no new file selected
-                finalPhotoUrl = previewUrl
-                finalPhotoPath = getStoragePathFromPublicUrl(previewUrl)
             }
 
 
@@ -1014,6 +1069,48 @@ const NewAd = () => {
                             </div>
                         </div>
 
+                        <div>
+                            <Label className="mb-2 block">Previa do WhatsApp</Label>
+                            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                {previewUrl ? (
+                                    <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                                        <canvas
+                                            ref={statusPreviewCanvasRef}
+                                            width={1080}
+                                            height={1350}
+                                            className="block aspect-[4/5] w-full bg-white"
+                                            aria-label="Previa visual do post no WhatsApp"
+                                        />
+                                        {(!previewReady || uploadingImage) && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-white/75 text-sm font-semibold text-slate-700">
+                                                {uploadingImage ? 'Enviando preview...' : 'Montando preview...'}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="mx-auto w-full max-w-md rounded-xl bg-[#efeae2] p-4">
+                                        <div className="ml-auto max-w-[92%] rounded-lg bg-[#d9fdd3] p-3 text-sm leading-relaxed text-slate-900 shadow-sm whitespace-pre-line">
+                                            {buildStatusCaption(formData)}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {previewError && (
+                                    <p className="mt-3 text-sm text-red-600">{previewError}</p>
+                                )}
+
+                                <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={previewApproved}
+                                        onChange={(event) => setPreviewApproved(event.target.checked)}
+                                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600"
+                                    />
+                                    <span>Aprovo esta previa para postagem no WhatsApp.</span>
+                                </label>
+                            </div>
+                        </div>
+
                     </CardContent>
                     <CardFooter className="flex justify-end space-x-3 border-t border-slate-100 p-6">
                         <Button
@@ -1025,7 +1122,7 @@ const NewAd = () => {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={loading || !formData.description}
+                            disabled={loading || !formData.description || !previewApproved || Boolean(previewUrl && !previewReady)}
                         >
                             {loading ? <span className="animate-spin mr-2">⏳</span> : <Save className="h-4 w-4 mr-2" />}
                             {loading ? (uploadingImage ? 'Enviando Imagem...' : 'Salvando...') : (isEditMode ? 'Atualizar Anúncio' : 'Criar Anúncio')}
