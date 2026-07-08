@@ -81,17 +81,19 @@ async function notifyStatusBot({ filePath, caption }) {
 
         if (error) {
             console.error('Falha ao invocar notify-status-bot:', error)
-            return
+            return false
         }
 
         if (data?.ok === false) {
             console.error('notify-status-bot retornou erro:', data.error)
-            return
+            return false
         }
 
         console.info('Anuncio enviado para o Status do WhatsApp.')
+        return true
     } catch (err) {
         console.error('Erro inesperado ao notificar status bot:', err)
+        return false
     }
 }
 
@@ -1049,12 +1051,28 @@ const NewAd = () => {
                 return `${label}: aprove a previa do WhatsApp antes de salvar o anuncio.`
             }
 
-            if (!item.previewReady) {
-                return `${label}: aguarde a previa do WhatsApp ser processada.`
-            }
         }
 
         return null
+    }
+
+    const createStatusPreviewBlob = async (item) => {
+        const canvas = itemCanvasRefs.current[item.id] || document.createElement('canvas')
+        await drawStatusTemplatePreview(canvas, {
+            imageSrc: item.previewUrl,
+            formData: {
+                description: item.description,
+                expirationDate: item.expirationDate,
+                batch: item.batch,
+                quantity: item.quantity,
+                type: commonData.type,
+                logistics: commonData.logistics,
+                cidade: commonData.cidade,
+                estado: commonData.estado
+            }
+        })
+
+        return canvasToJpegBlob(canvas)
     }
 
     const handleSubmit = async (event) => {
@@ -1092,12 +1110,7 @@ const NewAd = () => {
                 setItemPreviewState(item.id, { uploadingImage: true })
 
                 try {
-                    const canvas = itemCanvasRefs.current[item.id]
-                    if (!canvas || !item.previewReady) {
-                        throw new Error('A previa do WhatsApp ainda esta sendo montada. Aguarde alguns segundos e tente novamente.')
-                    }
-
-                    const processedBlob = await canvasToJpegBlob(canvas)
+                    const processedBlob = await createStatusPreviewBlob(item)
                     const fileName = `${Date.now()}_${item.id}_${Math.random().toString(36).slice(2)}.jpg`
                     const filePath = `${activeUser.id}/${fileName}`
 
@@ -1150,10 +1163,14 @@ const NewAd = () => {
                 if (error) throw error
             }
 
+            let failedWhatsappNotifications = 0
             if (statusInicial === 'ATIVO') {
-                await Promise.allSettled(
+                const notificationResults = await Promise.allSettled(
                     notifications.map((notification) => notifyStatusBot(notification))
                 )
+                failedWhatsappNotifications = notificationResults.filter((result) => (
+                    result.status === 'rejected' || result.value !== true
+                )).length
             }
 
             if (statusInicial === 'AGUARDANDO_APROVACAO') {
@@ -1162,9 +1179,13 @@ const NewAd = () => {
                     : `${payloads.length} anuncio(s) enviado(s) para aprovacao do Administrador!`)
                 navigate('/')
             } else {
-                alert(isEditMode
+                const successMessage = isEditMode
                     ? 'Anuncio atualizado com sucesso!'
-                    : `${payloads.length} anuncio(s) criado(s) com sucesso!`)
+                    : `${payloads.length} anuncio(s) criado(s) com sucesso!`
+                const whatsappWarning = failedWhatsappNotifications > 0
+                    ? `\n\nAtencao: ${failedWhatsappNotifications} publicacao(oes) nao foram enviadas ao WhatsApp.`
+                    : ''
+                alert(`${successMessage}${whatsappWarning}`)
                 navigate(isEditMode ? '/meus-anuncios' : '/')
             }
         } catch (err) {
@@ -1185,7 +1206,6 @@ const NewAd = () => {
         }
     }
 
-    const hasPendingPreview = items.some(item => !item.previewReady)
     const hasUploadingImage = items.some(item => item.uploadingImage)
     const hasNoAdPermission = userProfile
         && !canCreateType('DOACAO')
@@ -1431,7 +1451,7 @@ const NewAd = () => {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={loading || hasPendingPreview || hasNoAdPermission}
+                            disabled={loading || hasNoAdPermission}
                         >
                             {loading ? <span className="mr-2 animate-spin">...</span> : <Save className="mr-2 h-4 w-4" />}
                             {loading
