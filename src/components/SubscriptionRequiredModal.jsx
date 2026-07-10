@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle, CreditCard, Loader2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { formatSubscriptionPrice, getSubscriptionPrice } from '../utils/subscriptionPrice'
 
 const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 20,00')
+
+    useEffect(() => {
+        if (!isOpen) return
+        getSubscriptionPrice().then((price) => setSubscriptionPrice(formatSubscriptionPrice(price)))
+    }, [isOpen])
 
     if (!isOpen) return null
 
@@ -45,7 +52,7 @@ const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
                     <div className="flex items-end justify-between">
                         <div>
                             <p className="text-sm font-semibold text-brand-deep">Assinatura TrocaFarma</p>
-                            <p className="mt-1 text-2xl font-bold text-gray-900">R$ 20<span className="text-sm font-normal text-gray-500">/mês</span></p>
+                            <p className="mt-1 text-2xl font-bold text-gray-900">{subscriptionPrice}<span className="text-sm font-normal text-gray-500">/mês</span></p>
                         </div>
                         <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">10 dias grátis</span>
                     </div>
