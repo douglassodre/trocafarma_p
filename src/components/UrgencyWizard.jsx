@@ -5,6 +5,16 @@ import { apiService } from '../services/apiService';
 import Autocomplete from './Autocomplete';
 import { useNavigate } from 'react-router-dom';
 
+const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
+
+const formatCpf = (value) => {
+    const digits = onlyDigits(value).slice(0, 11);
+    return digits
+        .replace(/^(\d{3})(\d)/, '$1.$2')
+        .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1-$2');
+};
+
 const UrgencyWizard = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
@@ -33,41 +43,65 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         password: ''
     });
 
+    const handleCpfChange = (event) => {
+        const maskedCpf = formatCpf(event.target.value);
+        setIdentificationStatus('listening');
+        setFormData(prev => ({
+            ...prev,
+            cpf: maskedCpf,
+            contato_nome: '',
+            contato_email: '',
+            contato_instituicao: '',
+            cnpj: '',
+            whatsapp: '',
+            password: ''
+        }));
+    };
+
     // Check CPF with Smart Identify logic
     const checkCpfSmart = async () => {
-        if (!formData.cpf || formData.cpf.length < 11) return;
+        const normalizedCpf = onlyDigits(formData.cpf);
+        if (normalizedCpf.length !== 11) {
+            setIdentificationStatus('listening');
+            return;
+        }
+
         setIdentificationStatus('checking');
 
         try {
-            // Check Internal DB (Smart Identify)
-            const { data, error } = await supabase.rpc('check_user_by_cpf', { input_cpf: formData.cpf });
+            const { data, error } = await supabase.rpc('check_user_by_cpf', {
+                input_cpf: normalizedCpf
+            });
 
             if (error) throw error;
 
-            const result = data && data[0]; // RPC returns a table/array
+            const result = data?.[0];
 
-            if (result && result.found) {
-                setIdentificationStatus('known');
+            if (result?.found) {
                 setFormData(prev => ({
                     ...prev,
-                    contato_email: result.user_email,
-                    contato_nome: result.user_name,
-                    contato_instituicao: result.institution_name
+                    contato_email: result.user_email || '',
+                    contato_nome: result.user_name || '',
+                    contato_instituicao: result.institution_name || '',
+                    cnpj: '',
+                    whatsapp: ''
                 }));
-            } else {
-                // Double check with external API if not internal to fill name
-                const cpfData = await apiService.fetchCPFData(formData.cpf);
-                const name = cpfData.nome || cpfData.n || (cpfData.data && cpfData.data.nome) || '';
-                if (name) {
-                    setFormData(prev => ({ ...prev, contato_nome: name }));
-                }
-                setIdentificationStatus('new');
+                setIdentificationStatus('known');
+                return;
             }
 
+            const cpfData = await apiService.fetchCPFData(normalizedCpf);
+            const name = cpfData?.nome || cpfData?.n || cpfData?.data?.nome || '';
+            setFormData(prev => ({
+                ...prev,
+                contato_nome: name,
+                contato_email: '',
+                contato_instituicao: ''
+            }));
+            setIdentificationStatus('new');
         } catch (err) {
             console.error("Smart Identify Error:", err);
-            // Fallback to new user
-            setIdentificationStatus('new');
+            setIdentificationStatus('error');
         }
     };
 
@@ -117,7 +151,9 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
         // Step 4 Validation
         if (step === 4) {
-            if (identificationStatus === 'listening') return alert("Informe o CPF.");
+            if (identificationStatus === 'listening') return alert("Informe um CPF válido.");
+            if (identificationStatus === 'checking') return alert("Aguarde a consulta do CPF.");
+            if (identificationStatus === 'error') return alert("Não foi possível consultar o CPF. Tente novamente.");
             if (!formData.password) return alert("Informe a senha.");
             if (identificationStatus === 'new') {
                 if (!formData.cnpj || !formData.whatsapp || !formData.contato_email) return alert("Preencha todos os campos.");
@@ -360,12 +396,15 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             {/* CPF First - Smart Input */}
                             <div className="relative">
                                 <input
-                                    type="text" placeholder="CPF (Apenas números)"
+                                    type="text"
+                                    placeholder="CPF"
                                     className={`w-full p-4 border rounded-lg outline-none text-lg transition-all ${identificationStatus === 'known' ? 'border-brand-deep bg-brand-lavender/20 ring-1 ring-brand-periwinkle' : 'border-gray-300 focus:border-brand-deep'
                                         }`}
                                     value={formData.cpf}
-                                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                                    onChange={handleCpfChange}
                                     onBlur={checkCpfSmart}
+                                    inputMode="numeric"
+                                    autoComplete="username"
                                     maxLength={14}
                                 />
                                 {identificationStatus === 'checking' && (
@@ -380,18 +419,31 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 )}
                             </div>
 
-                            {formData.contato_nome && (
-                                <div className="animate-fade-in text-sm text-gray-600 font-medium px-1">
-                                    Olá, {formData.contato_nome}
+                            {identificationStatus === 'error' && (
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                    Não foi possível consultar o CPF. Verifique sua conexão e tente novamente.
                                 </div>
                             )}
 
                             {/* Known User Flow */}
                             {identificationStatus === 'known' && (
                                 <div className="space-y-4 animate-fade-in-up">
-                                    <div className="bg-brand-lavender/20 p-4 rounded-lg border border-brand-periwinkle/20 px-4">
-                                        <p className="text-sm text-brand-ink font-semibold mb-1">Instituição Vinculada:</p>
-                                        <p className="text-gray-800">{formData.contato_instituicao}</p>
+                                    <div className="rounded-lg border border-brand-periwinkle/30 bg-brand-lavender/10 p-4">
+                                        <p className="mb-3 font-semibold text-brand-ink">Cadastro encontrado</p>
+                                        <dl className="space-y-3 text-sm">
+                                            <div>
+                                                <dt className="text-gray-500">Nome</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_nome}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">E-mail</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_email}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">Instituição vinculada</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_instituicao}</dd>
+                                            </div>
+                                        </dl>
                                     </div>
 
                                     <input
@@ -471,7 +523,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
                         <button
                             onClick={handleNext}
-                            disabled={loading}
+                            disabled={loading || identificationStatus === 'checking' || identificationStatus === 'error'}
                             className={`px-8 py-3 rounded-lg font-bold shadow-lg transform active:scale-95 transition-all flex items-center 
                                 ${step === 4 && identificationStatus !== 'listening' ? 'bg-brand-deep hover:bg-brand-royal text-white' : 'bg-brand-ink hover:bg-brand-deep text-white'}
                             `}
