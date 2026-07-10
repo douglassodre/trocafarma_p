@@ -29,7 +29,7 @@ const wrapText = (ctx, text, x, y, maxWidth, lineHeight, maxLines = 4) => {
     let line = ''
     let lines = 0
     for (const word of words) {
-        const candidate = line ? \`${line} ${word}\` : word
+        const candidate = line ? `${line} ${word}` : word
         if (line && ctx.measureText(candidate).width > maxWidth) {
             ctx.fillText(line, x, y + lines * lineHeight)
             line = word
@@ -149,7 +149,7 @@ export const drawUrgencyStory = async (canvas, data) => {
         wrapText(ctx, value, x + 26, y + 84, 350, 34, 1)
     }
 
-    infoBox(122, 1010, 'QUANTIDADE NECESSÁRIA', \`${quantity} unidades\`, true)
+    infoBox(122, 1010, 'QUANTIDADE NECESSÁRIA', `${quantity} unidades`, true)
     infoBox(550, 1010, 'PRECISA ATÉ', deadline, true)
     infoBox(122, 1154, 'INSTITUIÇÃO', institution)
     infoBox(550, 1154, 'LOCALIZAÇÃO', location)
@@ -207,10 +207,10 @@ export const buildUrgencyCaption = (data) => [
     'RUPTURA URGENTE - TrocaFarma',
     '',
     data.item_nome,
-    \`Quantidade necessária: ${data.quantidade}\`,
-    \`Prazo: ${data.urgencia_label}\`,
-    \`Local: ${[data.cidade, data.estado].filter(Boolean).join(' - ')}\`,
-    data.contato_instituicao ? \`Instituição: ${data.contato_instituicao}\` : null,
+    `Quantidade necessária: ${data.quantidade}`,
+    `Prazo: ${data.urgencia_label}`,
+    `Local: ${[data.cidade, data.estado].filter(Boolean).join(' - ')}`,
+    data.contato_instituicao ? `Instituição: ${data.contato_instituicao}` : null,
     '',
     'Você tem este item? Responda este status.'
 ].filter(Boolean).join('\n')
