@@ -7,9 +7,10 @@ import logoImageUrl from '../assets/logo.png'
 import {
     ArrowLeft, MapPin, Calendar,
     Package, FileText, Camera, Save,
-    Tag, AlertTriangle, CheckCircle, XCircle, Plus, Trash2
+    Tag, AlertTriangle, CheckCircle, XCircle, Plus, Trash2, Siren
 } from 'lucide-react'
 import Autocomplete from '../components/Autocomplete'
+import UrgencyWizard from '../components/UrgencyWizard'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
@@ -759,6 +760,7 @@ const NewAd = () => {
     const { user, userProfile, profileError, refreshProfile } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
+    const [isUrgencyWizardOpen, setIsUrgencyWizardOpen] = useState(false)
     const itemCanvasRefs = useRef({})
     const blobUrlsRef = useRef(new Set())
 
@@ -1344,25 +1346,42 @@ const NewAd = () => {
 
     return (
         <div className="mx-auto max-w-5xl">
+            <UrgencyWizard
+                isOpen={isUrgencyWizardOpen}
+                onClose={() => setIsUrgencyWizardOpen(false)}
+            />
+
             <Card>
                 <CardHeader>
-                    <div className="flex items-center space-x-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            type="button"
-                            onClick={() => navigate(-1)}
-                        >
-                            <ArrowLeft className="h-6 w-6" />
-                        </Button>
-                        <div>
-                            <CardTitle>{isEditMode ? 'Editar Anuncio' : 'Novo Anuncio'}</CardTitle>
-                            {!isEditMode && (
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Cadastre varios itens usando os mesmos dados de local, negociacao e logistica.
-                                </p>
-                            )}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center space-x-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                onClick={() => navigate(-1)}
+                            >
+                                <ArrowLeft className="h-6 w-6" />
+                            </Button>
+                            <div>
+                                <CardTitle>{isEditMode ? 'Editar Anuncio' : 'Novo Anuncio'}</CardTitle>
+                                {!isEditMode && (
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        Cadastre varios itens usando os mesmos dados de local, negociacao e logistica.
+                                    </p>
+                                )}
+                            </div>
                         </div>
+                        {!isEditMode && (
+                            <Button
+                                type="button"
+                                onClick={() => setIsUrgencyWizardOpen(true)}
+                                className="gap-2 bg-red-600 text-white hover:bg-red-700"
+                            >
+                                <Siren className="h-4 w-4" />
+                                Registrar ruptura
+                            </Button>
+                        )}
                     </div>
                 </CardHeader>
 
