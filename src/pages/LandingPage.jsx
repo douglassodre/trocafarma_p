@@ -222,7 +222,7 @@ const LandingPage = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                         <Link to="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-brand-deep font-bold rounded-lg text-lg hover:bg-brand-mist transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
-                            Ativar Agora (${subscriptionPrice}/mês)
+                            Ativar Agora ({subscriptionPrice}/mês)
                         </Link>
                         <Link to="/contact" className="w-full sm:w-auto px-8 py-4 bg-transparent border-2 border-brand-lavender text-white font-bold rounded-lg text-lg hover:bg-white/10 transition-all">
                             Falar com Consultor
