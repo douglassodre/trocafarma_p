@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Search, Clock, ArrowRight, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { apiService } from '../services/apiService';
 import Autocomplete from './Autocomplete';
 import { useNavigate } from 'react-router-dom';
+import {
+    STATUS_PHONE_DISPLAY,
+    STATUS_PHONE_LINK,
+    buildUrgencyCaption,
+    canvasToJpegBlob,
+    drawUrgencyStory,
+    isSalvadorLocation
+} from '../utils/urgencyStory';
 
 const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
 
@@ -17,6 +25,7 @@ const formatCpf = (value) => {
 
 const UrgencyWizard = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
+    const storyCanvasRef = useRef(null);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [loadingCpf, setLoadingCpf] = useState(false);
@@ -32,6 +41,9 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         quantidade: '',
         urgencia_label: '',
         data_expiracao: null,
+        cidade: '',
+        estado: '',
+        whatsapp_status_consent: false,
 
         // Step 4 Data
         cpf: '',
@@ -57,6 +69,13 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
             password: ''
         }));
     };
+
+    useEffect(() => {
+        if (!isOpen || !storyCanvasRef.current) return;
+        drawUrgencyStory(storyCanvasRef.current, formData).catch((error) => {
+            console.error('Erro ao montar preview da ruptura:', error);
+        });
+    }, [isOpen, step, formData]);
 
     // Check CPF with Smart Identify logic
     const checkCpfSmart = async () => {
@@ -147,13 +166,14 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
     const handleNext = () => {
         if (step === 1 && !formData.item_nome) return alert("Selecione um item.");
-        if (step === 2 && (!formData.quantidade || !formData.urgencia_label)) return alert("Preencha todos os campos.");
+        if (step === 2 && (!formData.quantidade || !formData.urgencia_label || !formData.cidade || !formData.estado)) return alert("Preencha quantidade, prazo, cidade e UF.");
 
         // Step 4 Validation
         if (step === 4) {
             if (identificationStatus === 'listening') return alert("Informe um CPF válido.");
             if (identificationStatus === 'checking') return alert("Aguarde a consulta do CPF.");
             if (identificationStatus === 'error') return alert("Não foi possível consultar o CPF. Tente novamente.");
+            if (isSalvadorLocation(formData) && !formData.whatsapp_status_consent) return alert("Confirme a autorização para publicar a ruptura no Status do WhatsApp.");
             if (!formData.password) return alert("Informe a senha.");
             if (identificationStatus === 'new') {
                 if (!formData.cnpj || !formData.whatsapp || !formData.contato_email) return alert("Preencha todos os campos.");
@@ -215,9 +235,28 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         }
     };
 
+    const publishUrgencyToStatus = async (user) => {
+        const canvas = storyCanvasRef.current || document.createElement('canvas');
+        await drawUrgencyStory(canvas, formData);
+        const storyBlob = await canvasToJpegBlob(canvas);
+        const filePath = `${user.id}/ruptura_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('anuncios-fotos')
+            .upload(filePath, storyBlob, { contentType: 'image/jpeg', upsert: false });
+        if (uploadError) throw uploadError;
+
+        const { data, error } = await supabase.functions.invoke('notify-status-bot', {
+            body: { filePath, caption: buildUrgencyCaption(formData) }
+        });
+        if (error || data?.ok === false) throw new Error(data?.error || error?.message || 'Falha ao publicar no Status.');
+        return true;
+    };
+
     const finalizeUrgencyCreation = async (user) => {
         try {
-            const city = 'Salvador';
+            const city = formData.cidade.trim();
+            const state = formData.estado.trim().toUpperCase();
             let institutionId = null;
 
             // Only create institution/profile if NEW
@@ -237,6 +276,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             cnpj: formData.cnpj,
                             nome_fantasia: formData.contato_instituicao,
                             cidade: city,
+                            estado: state,
                             status: 'PENDENTE'
                         }])
                         .select()
@@ -272,6 +312,8 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                     nivel_urgencia_label: formData.urgencia_label,
                     data_expiracao: expirationDate.toISOString(),
                     cidade: city,
+                    estado: state,
+                    whatsapp_status_consent: formData.whatsapp_status_consent,
                     contato_nome: formData.contato_nome,
                     contato_email: formData.contato_email,
                     contato_instituicao: formData.contato_instituicao,
@@ -281,7 +323,17 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
             if (urgencyError) throw urgencyError;
 
-            alert("Solicitação de Urgência Criada com Sucesso!");
+            let statusWarning = '';
+            if (isSalvadorLocation(formData) && formData.whatsapp_status_consent) {
+                try {
+                    await publishUrgencyToStatus(user);
+                } catch (statusError) {
+                    console.error('Erro ao publicar ruptura no Status:', statusError);
+                    statusWarning = '\n\nA solicitação foi criada, mas não foi possível publicá-la no Status do WhatsApp.';
+                }
+            }
+
+            alert(`Solicitação de Urgência Criada com Sucesso!${statusWarning}`);
             onClose();
             navigate('/dashboard');
 
@@ -363,6 +415,23 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                     ))}
                                 </div>
                             </div>
+
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                    <div className="sm:col-span-2">
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">Cidade da ruptura</label>
+                                        <input type="text" value={formData.cidade}
+                                            onChange={(e) => setFormData({ ...formData, cidade: e.target.value, whatsapp_status_consent: false })}
+                                            placeholder="Ex: Salvador"
+                                            className="w-full rounded-lg border border-gray-200 p-3 outline-none focus:border-brand-deep" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">UF</label>
+                                        <input type="text" value={formData.estado}
+                                            onChange={(e) => setFormData({ ...formData, estado: e.target.value.toUpperCase().slice(0, 2), whatsapp_status_consent: false })}
+                                            placeholder="BA" maxLength={2}
+                                            className="w-full rounded-lg border border-gray-200 p-3 uppercase outline-none focus:border-brand-deep" />
+                                    </div>
+                                </div>
                         </div>
                     )}
 
@@ -506,6 +575,25 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                     <p className="text-xs text-gray-400">Preencha os dados restantes para criar sua conta.</p>
                                 </div>
                             )}
+
+                            <div className="mt-5 space-y-3 border-t border-gray-200 pt-5">
+                                <h3 className="font-semibold text-gray-900">Prévia do Status</h3>
+                                <div className="mx-auto w-full max-w-[230px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+                                    <canvas ref={storyCanvasRef} width={1080} height={1920} className="block aspect-[9/16] w-full" />
+                                </div>
+                                {isSalvadorLocation(formData) ? (
+                                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                                        <input type="checkbox" checked={formData.whatsapp_status_consent}
+                                            onChange={(e) => setFormData({ ...formData, whatsapp_status_consent: e.target.checked })}
+                                            className="mt-1 h-4 w-4" />
+                                        <span>Concordo que esta ruptura seja publicada automaticamente no Status do WhatsApp do TrocaFarma Salvador, número <a href={STATUS_PHONE_LINK} target="_blank" rel="noreferrer" className="font-bold underline">{STATUS_PHONE_DISPLAY}</a>.</span>
+                                    </label>
+                                ) : (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                        O canal {STATUS_PHONE_DISPLAY} atende exclusivamente Salvador/BA. Esta ruptura será registrada no site, mas não será enviada a esse Status.
+                                    </div>
+                                )}
+                            </div>
 
                         </div>
                     )}
