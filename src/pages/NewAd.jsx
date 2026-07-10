@@ -228,113 +228,178 @@ async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
     const productImage = imageSrc ? await loadCanvasImage(imageSrc) : null
     const logoImage = await loadCanvasImage(logoImageUrl)
     const ctx = canvas.getContext('2d')
-
     if (!ctx) throw new Error('Canvas indisponivel')
 
     canvas.width = 1080
-    canvas.height = 1350
+    canvas.height = 1920
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
-    gradient.addColorStop(0, '#ffffff')
-    gradient.addColorStop(1, '#f3f5fb')
-    ctx.fillStyle = gradient
+    const typeLabels = { DOACAO: 'Doação', EMPRESTIMO: 'Empréstimo', VENDA: 'Venda', TROCA: 'Troca' }
+    const logisticsLabels = { RETIRADA: 'Retirada', ENTREGA: 'Entrega', COMBINAR: 'A combinar' }
+    const typeLabel = typeLabels[formData.type] || formData.type || 'Disponível'
+    const logisticsLabel = logisticsLabels[formData.logistics] || formData.logistics || 'A combinar'
+    const location = [formData.cidade, formData.estado].filter(Boolean).join(' · ') || 'Local a combinar'
+    const validityDate = formData.expirationDate ? new Date(`${formData.expirationDate}T12:00:00`) : null
+    const validityLabel = validityDate && !Number.isNaN(validityDate.getTime())
+        ? validityDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')
+        : 'Não informada'
+    const quantity = formData.quantity || 'Não informada'
+    const quantityLabel = Number(quantity) === 1 ? `${quantity} unidade` : `${quantity} unidades`
+
+    const background = ctx.createLinearGradient(0, 0, canvas.width, canvas.height)
+    background.addColorStop(0, '#f3f5ff')
+    background.addColorStop(0.5, '#fbfbff')
+    background.addColorStop(1, '#e7ecff')
+    ctx.fillStyle = background
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    ctx.shadowColor = 'rgba(31, 41, 55, 0.16)'
-    ctx.shadowBlur = 28
-    ctx.shadowOffsetY = 12
-    fillRoundedRect(ctx, 82, 72, 916, 1200, 42, '#ffffff')
+    const glow = ctx.createRadialGradient(900, 80, 10, 900, 80, 380)
+    glow.addColorStop(0, 'rgba(194, 172, 242, 0.48)')
+    glow.addColorStop(1, 'rgba(194, 172, 242, 0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(520, 0, 560, 500)
+
+    ctx.shadowColor = 'rgba(43, 87, 217, 0.18)'
+    ctx.shadowBlur = 38
+    ctx.shadowOffsetY = 18
+    fillRoundedRect(ctx, 56, 58, 968, 1804, 46, '#ffffff')
     ctx.shadowColor = 'transparent'
-    strokeRoundedRect(ctx, 82, 72, 916, 1200, 42, '#bda9f2', 4)
+    strokeRoundedRect(ctx, 56, 58, 968, 1804, 46, '#cbd5ff', 2)
 
-    ctx.drawImage(logoImage, 490, 42, 100, 100)
-    ctx.strokeStyle = '#bda9f2'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(130, 124)
-    ctx.lineTo(440, 124)
-    ctx.moveTo(640, 124)
-    ctx.lineTo(950, 124)
-    ctx.stroke()
+    const topAccent = ctx.createLinearGradient(75, 0, 1005, 0)
+    topAccent.addColorStop(0, '#2b57d9')
+    topAccent.addColorStop(1, '#c2acf2')
+    ctx.save()
+    roundedRectPath(ctx, 56, 58, 968, 12, 8)
+    ctx.clip()
+    ctx.fillStyle = topAccent
+    ctx.fillRect(56, 58, 968, 12)
+    ctx.restore()
 
-    ctx.fillStyle = '#111827'
-    ctx.font = 'bold 62px Arial, sans-serif'
-    drawWrappedText(ctx, 'Medicamento Disponivel para Troca', 150, 230, 470, 70, 3)
+    ctx.drawImage(logoImage, 120, 116, 74, 74)
+    ctx.font = 'bold 48px Arial, sans-serif'
+    ctx.fillStyle = '#183b91'
+    ctx.fillText('trocafarma', 210, 171)
 
-    ctx.shadowColor = 'rgba(31, 41, 55, 0.22)'
-    ctx.shadowBlur = 20
-    ctx.shadowOffsetY = 10
-    fillRoundedRect(ctx, 720, 162, 220, 160, 34, '#ffffff')
-    ctx.shadowColor = 'transparent'
-    ctx.drawImage(logoImage, 790, 172, 80, 80)
-    ctx.fillStyle = '#111827'
-    ctx.font = '28px Arial, sans-serif'
+    fillRoundedRect(ctx, 712, 132, 246, 54, 27, '#eef2ff')
+    strokeRoundedRect(ctx, 712, 132, 246, 54, 27, '#cbd5ff', 1)
+    ctx.fillStyle = '#4167d9'
+    ctx.font = 'bold 21px Arial, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('Selo Validade:', 830, 280)
-    ctx.fillText(formatMonthYear(formData.expirationDate), 830, 316)
+    ctx.fillText('Anúncio automático', 835, 166)
     ctx.textAlign = 'left'
 
-    ctx.shadowColor = 'rgba(31, 41, 55, 0.18)'
-    ctx.shadowBlur = 22
-    ctx.shadowOffsetY = 12
-    fillRoundedRect(ctx, 150, 360, 780, 420, 34, '#ffffff')
-    ctx.shadowColor = 'transparent'
-    strokeRoundedRect(ctx, 150, 360, 780, 420, 34, '#eef0f7', 3)
+    fillRoundedRect(ctx, 122, 240, 390, 54, 27, '#07112f')
+    ctx.fillStyle = '#c2acf2'
+    ctx.beginPath()
+    ctx.arc(148, 267, 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 22px Arial, sans-serif'
+    ctx.fillText(`DISPONÍVEL PARA ${typeLabel.toLocaleUpperCase('pt-BR')}`, 166, 275)
 
+    ctx.fillStyle = '#60709a'
+    ctx.font = 'bold 22px Arial, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText(location, 958, 275)
+    ctx.textAlign = 'left'
+
+    ctx.fillStyle = '#07112f'
+    ctx.font = 'bold 58px Arial, sans-serif'
+    drawWrappedText(ctx, formData.description?.trim() || 'Novo anúncio TrocaFarma', 122, 374, 836, 64, 3)
+
+    ctx.shadowColor = 'rgba(43, 87, 217, 0.10)'
+    ctx.shadowBlur = 24
+    ctx.shadowOffsetY = 12
+    fillRoundedRect(ctx, 122, 555, 836, 470, 38, '#f5f7ff')
+    ctx.shadowColor = 'transparent'
+    strokeRoundedRect(ctx, 122, 555, 836, 470, 38, '#dbe2ff', 1)
+
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.12)'
+    ctx.shadowBlur = 24
+    ctx.shadowOffsetY = 12
+    fillRoundedRect(ctx, 305, 620, 470, 330, 28, '#ffffff')
+    ctx.shadowColor = 'transparent'
     ctx.save()
-    roundedRectPath(ctx, 172, 382, 736, 376, 24)
+    roundedRectPath(ctx, 325, 640, 430, 290, 18)
     ctx.clip()
-    ctx.fillStyle = '#f8fafc'
-    ctx.fillRect(172, 382, 736, 376)
-    if (productImage) {
-        drawContainedImage(ctx, productImage, 190, 400, 700, 340)
-    } else {
-        ctx.drawImage(logoImage, 430, 455, 220, 220)
-        ctx.fillStyle = '#64748b'
-        ctx.font = '34px Arial, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText('Sem foto do item', 540, 710)
-        ctx.textAlign = 'left'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(325, 640, 430, 290)
+    if (productImage) drawContainedImage(ctx, productImage, 345, 660, 390, 250)
+    else {
+        ctx.globalAlpha = 0.55
+        ctx.drawImage(logoImage, 465, 700, 150, 150)
+        ctx.globalAlpha = 1
     }
     ctx.restore()
 
-    ctx.fillStyle = '#111827'
-    ctx.font = '38px Arial, sans-serif'
-    const details = [
-        formData.description?.trim() || 'Novo anuncio TrocaFarma',
-        `Validade: ${formatDate(formData.expirationDate)} | Lote: ${formData.batch?.trim() || 'Nao informado'}`,
-        `Quantidade: ${formData.quantity || 'Nao informada'} | Tipo: ${formData.type || 'Nao informado'}`,
-        `Logistica: ${formData.logistics || 'A combinar'}`,
-        formData.cidade || formData.estado
-            ? `Local: ${[formData.cidade, formData.estado].filter(Boolean).join(' - ')}`
-            : '',
-    ].filter(Boolean).join('\n')
-    drawWrappedText(ctx, details, 150, 860, 780, 50, 7)
+    ctx.shadowColor = 'rgba(43, 87, 217, 0.12)'
+    ctx.shadowBlur = 18
+    ctx.shadowOffsetY = 8
+    fillRoundedRect(ctx, 700, 584, 230, 100, 26, '#ffffff')
+    ctx.shadowColor = 'transparent'
+    ctx.fillStyle = '#7b88ad'
+    ctx.font = 'bold 18px Arial, sans-serif'
+    ctx.fillText('VALIDADE', 724, 620)
+    ctx.fillStyle = '#2b57d9'
+    ctx.font = 'bold 30px Arial, sans-serif'
+    ctx.fillText(validityLabel, 724, 658)
 
-    const buttonGradient = ctx.createLinearGradient(150, 1080, 930, 1080)
-    buttonGradient.addColorStop(0, '#4167d9')
-    buttonGradient.addColorStop(1, '#2452d6')
-    fillRoundedRect(ctx, 150, 1080, 780, 112, 56, buttonGradient)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 44px Arial, sans-serif'
+    fillRoundedRect(ctx, 152, 954, 294, 42, 21, '#ffffff')
+    ctx.fillStyle = '#7583a8'
+    ctx.font = 'bold 16px Arial, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('Tenho Interesse', 540, 1152)
+    ctx.fillText('Foto cadastrada pela instituição', 299, 981)
     ctx.textAlign = 'left'
 
-    ctx.drawImage(logoImage, 500, 1210, 80, 80)
-    ctx.strokeStyle = '#bda9f2'
-    ctx.lineWidth = 3
+    const drawInfoBox = (x, y, label, value, accent = false) => {
+        fillRoundedRect(ctx, x, y, 408, 118, 24, '#f7f8fe')
+        strokeRoundedRect(ctx, x, y, 408, 118, 24, '#dbe2ff', 1)
+        ctx.fillStyle = '#7b88ad'
+        ctx.font = 'bold 18px Arial, sans-serif'
+        ctx.fillText(label, x + 26, y + 39)
+        ctx.fillStyle = accent ? '#6d45d8' : '#07112f'
+        ctx.font = 'bold 30px Arial, sans-serif'
+        ctx.fillText(String(value), x + 26, y + 80)
+    }
+    drawInfoBox(122, 1060, 'LOTE', formData.batch?.trim() || 'Não informado')
+    drawInfoBox(550, 1060, 'QUANTIDADE', quantityLabel)
+    drawInfoBox(122, 1198, 'MODALIDADE', typeLabel, true)
+    drawInfoBox(550, 1198, 'LOGÍSTICA', logisticsLabel)
+
+    const buttonGradient = ctx.createLinearGradient(122, 0, 958, 0)
+    buttonGradient.addColorStop(0, '#4167d9')
+    buttonGradient.addColorStop(1, '#2b57d9')
+    ctx.shadowColor = 'rgba(43, 87, 217, 0.24)'
+    ctx.shadowBlur = 28
+    ctx.shadowOffsetY = 14
+    fillRoundedRect(ctx, 122, 1590, 836, 104, 32, buttonGradient)
+    ctx.shadowColor = 'transparent'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 40px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Tenho interesse', 540, 1655)
+
+    ctx.fillStyle = '#5f6b8b'
+    ctx.font = 'bold 21px Arial, sans-serif'
+    ctx.fillText('Responda este status ou acesse o anúncio no TrocaFarma', 540, 1733)
+    ctx.strokeStyle = '#dbe2ff'
+    ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(130, 1248)
-    ctx.lineTo(470, 1248)
-    ctx.moveTo(610, 1248)
-    ctx.lineTo(950, 1248)
+    ctx.moveTo(122, 1765)
+    ctx.lineTo(958, 1765)
     ctx.stroke()
 
-    ctx.fillStyle = '#111827'
-    ctx.font = '32px Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('Anuncie gratuitamente pelo TrocaFarma', 540, 1310)
+    ctx.textAlign = 'left'
+    ctx.fillStyle = '#7180a5'
+    ctx.font = '20px Arial, sans-serif'
+    ctx.fillText('Anuncie gratuitamente pelo', 122, 1811)
+    ctx.fillStyle = '#07112f'
+    ctx.font = 'bold 20px Arial, sans-serif'
+    ctx.fillText('TrocaFarma', 356, 1811)
+    ctx.fillStyle = '#2b57d9'
+    ctx.font = 'bold 21px Arial, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText('trocafarma.com', 958, 1811)
     ctx.textAlign = 'left'
 
     return canvas
