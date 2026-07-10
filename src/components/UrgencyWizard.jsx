@@ -413,9 +413,9 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
 
-            <div className={`bg-white rounded-lg w-full max-w-lg shadow-2xl overflow-hidden relative animate-fade-in-up transition-all duration-500 ease-in-out ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
+            <div className={`relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-lg bg-white shadow-2xl animate-fade-in-up transition-all duration-500 ease-in-out sm:max-h-[calc(100dvh-2rem)] ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
