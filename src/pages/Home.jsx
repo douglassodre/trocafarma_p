@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity, Siren } from 'lucide-react'
+import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity, Siren, BellRing } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import UrgencyResponseModal from '../components/UrgencyResponseModal'
 import UrgencyWizard from '../components/UrgencyWizard'
@@ -19,6 +19,7 @@ const Home = () => {
     }
 
     const [inTransitItems, setInTransitItems] = useState([])
+    const [pendingUrgencyOffers, setPendingUrgencyOffers] = useState([])
     const inTransitCount = inTransitItems.length
 
     // Urgency Response Modal State
@@ -40,6 +41,7 @@ const Home = () => {
         if (user) {
             fetchInTransitItems()
             fetchKPIs()
+            fetchPendingUrgencyOffers()
 
             // Check for help_urgency param
             const helpId = searchParams.get('help_urgency')
@@ -48,6 +50,23 @@ const Home = () => {
             }
         }
     }, [user, userProfile, navigate, searchParams])
+
+    useEffect(() => {
+        if (!user) return undefined
+
+        const channel = supabase
+            .channel(`urgency-offers-${user.id}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'transacoes' },
+                () => fetchPendingUrgencyOffers()
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [user])
 
     const closeResponseModal = () => {
         setResponseModalId(null)
@@ -76,6 +95,42 @@ const Home = () => {
         } catch (err) {
             console.error('Error fetching in-transit items:', err)
         }
+    }
+
+    const fetchPendingUrgencyOffers = async () => {
+        if (!user) return
+
+        try {
+            const { data, error } = await supabase
+                .from('transacoes')
+                .select(`
+                    id,
+                    created_at,
+                    quantidade,
+                    tipo,
+                    urgencia_id,
+                    solicitacoes_urgentes!transacoes_urgencia_id_fkey (
+                        id,
+                        item_nome,
+                        quantidade
+                    )
+                `)
+                .eq('solicitante_id', user.id)
+                .eq('status', 'PENDENTE')
+                .not('urgencia_id', 'is', null)
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setPendingUrgencyOffers(data || [])
+        } catch (err) {
+            console.error('Error fetching pending urgency offers:', err)
+        }
+    }
+
+    const openUrgencyOffers = (urgencyId) => {
+        navigate('/meus-anuncios', {
+            state: { activeTab: 'urgencias', highlightUrgencyId: urgencyId }
+        })
     }
 
     const fetchKPIs = async () => {
@@ -221,6 +276,51 @@ const Home = () => {
                     {/* Decorative Circles */}
                     <div className="absolute bottom-0 left-0 h-1 w-full bg-brand-lavender/40"></div>
                 </div>
+
+                {pendingUrgencyOffers.length > 0 && (
+                    <section className="mb-8 overflow-hidden rounded-xl border-2 border-red-300 bg-white shadow-lg" aria-live="polite">
+                        <div className="flex flex-col gap-5 bg-gradient-to-r from-red-700 to-red-500 p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-4">
+                                <div className="rounded-full bg-white/20 p-3">
+                                    <BellRing className="h-7 w-7 animate-pulse" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-red-100">Nova oferta recebida</p>
+                                    <h2 className="mt-1 text-xl font-bold">
+                                        {pendingUrgencyOffers.length === 1
+                                            ? 'Há uma instituição disponível para atender sua urgência'
+                                            : `Você recebeu ${pendingUrgencyOffers.length} ofertas para suas urgências`}
+                                    </h2>
+                                    <p className="mt-1 text-sm text-red-50">Acesse Minhas Urgências para analisar e decidir.</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => openUrgencyOffers(pendingUrgencyOffers[0].urgencia_id)}
+                                className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-bold text-red-700 shadow-md transition hover:-translate-y-0.5 hover:bg-red-50"
+                            >
+                                Ver em Minhas Urgências
+                                <ArrowRight className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="divide-y divide-red-100">
+                            {pendingUrgencyOffers.slice(0, 3).map(offer => (
+                                <button
+                                    key={offer.id}
+                                    onClick={() => openUrgencyOffers(offer.urgencia_id)}
+                                    className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-red-50"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate font-semibold text-gray-900">{offer.solicitacoes_urgentes?.item_nome || 'Item solicitado com urgência'}</p>
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            {offer.tipo} · {offer.quantidade} unidade(s) disponíveis
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 text-sm font-bold text-red-600">Analisar oferta</span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {/* --- KPI Section --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
