@@ -61,7 +61,6 @@ export const drawUrgencyStory = async (canvas, data) => {
     const location = [data.cidade, data.estado].filter(Boolean).join(' · ') || 'Local não informado'
     const deadline = data.urgencia_label || 'Urgente'
     const quantity = data.quantidade || '—'
-    const institution = data.contato_instituicao || 'Instituição solicitante'
     const salvador = isSalvadorLocation(data)
 
     const background = ctx.createLinearGradient(0, 0, 1080, 1920)
@@ -151,7 +150,7 @@ export const drawUrgencyStory = async (canvas, data) => {
 
     infoBox(122, 1010, 'QUANTIDADE NECESSÁRIA', `${quantity} unidades`, true)
     infoBox(550, 1010, 'PRECISA ATÉ', deadline, true)
-    infoBox(122, 1154, 'INSTITUIÇÃO', institution)
+    infoBox(122, 1154, 'CANAL DE NEGOCIAÇÃO', 'Exclusivo TrocaFarma')
     infoBox(550, 1154, 'LOCALIZAÇÃO', location)
 
     const button = ctx.createLinearGradient(122, 0, 958, 0)
@@ -210,7 +209,6 @@ export const buildUrgencyCaption = (data) => [
     `Quantidade necessária: ${data.quantidade}`,
     `Prazo: ${data.urgencia_label}`,
     `Local: ${[data.cidade, data.estado].filter(Boolean).join(' - ')}`,
-    data.contato_instituicao ? `Instituição: ${data.contato_instituicao}` : null,
     '',
     'Você tem este item? Responda este status.'
 ].filter(Boolean).join('\n')
