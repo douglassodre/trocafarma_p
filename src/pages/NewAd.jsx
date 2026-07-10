@@ -18,6 +18,23 @@ import { Textarea } from '../components/ui/textarea'
 
 const MAX_BULK_ITEMS = 20
 const EXPIRED_SESSION_MESSAGE = 'Sua sessao expirou. Entre novamente para continuar anunciando.'
+const SALVADOR_STATUS_PHONE_DISPLAY = '+55 71 98399-2970'
+const SALVADOR_STATUS_PHONE_LINK = 'https://wa.me/5571983992970'
+
+function normalizeLocation(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase()
+}
+
+function isSalvadorStatusLocation({ cidade, estado }) {
+    const normalizedCity = normalizeLocation(cidade)
+    const normalizedState = normalizeLocation(estado)
+    return normalizedCity === 'SALVADOR' && (normalizedState === 'BA' || normalizedState === 'BAHIA')
+}
+
 const DEFAULT_COMMON_DATA = {
     type: 'DOACAO',
     logistics: 'RETIRADA',
@@ -238,6 +255,7 @@ async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
     const typeLabel = typeLabels[formData.type] || formData.type || 'Disponível'
     const logisticsLabel = logisticsLabels[formData.logistics] || formData.logistics || 'A combinar'
     const location = [formData.cidade, formData.estado].filter(Boolean).join(' · ') || 'Local a combinar'
+    const isSalvadorAd = isSalvadorStatusLocation(formData)
     const validityDate = formData.expirationDate ? new Date(`${formData.expirationDate}T12:00:00`) : null
     const validityLabel = validityDate && !Number.isNaN(validityDate.getTime())
         ? validityDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')
@@ -380,26 +398,34 @@ async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
     ctx.fillText('Tenho interesse', 540, 1655)
 
     ctx.fillStyle = '#5f6b8b'
-    ctx.font = 'bold 21px Arial, sans-serif'
-    ctx.fillText('Responda este status ou acesse o anúncio no TrocaFarma', 540, 1733)
+    ctx.font = 'bold 20px Arial, sans-serif'
+    if (isSalvadorAd) {
+        ctx.fillText('Salve o contato e receba os próximos anúncios no Status', 540, 1722)
+        ctx.fillStyle = '#2b57d9'
+        ctx.font = 'bold 29px Arial, sans-serif'
+        ctx.fillText(SALVADOR_STATUS_PHONE_DISPLAY, 540, 1760)
+    } else {
+        ctx.fillText('Acompanhe os anúncios da sua região em trocafarma.com', 540, 1742)
+    }
+
     ctx.strokeStyle = '#dbe2ff'
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(122, 1765)
-    ctx.lineTo(958, 1765)
+    ctx.moveTo(122, 1787)
+    ctx.lineTo(958, 1787)
     ctx.stroke()
 
     ctx.textAlign = 'left'
     ctx.fillStyle = '#7180a5'
     ctx.font = '20px Arial, sans-serif'
-    ctx.fillText('Anuncie gratuitamente pelo', 122, 1811)
+    ctx.fillText('Anuncie gratuitamente pelo', 122, 1830)
     ctx.fillStyle = '#07112f'
     ctx.font = 'bold 20px Arial, sans-serif'
-    ctx.fillText('TrocaFarma', 356, 1811)
+    ctx.fillText('TrocaFarma', 356, 1830)
     ctx.fillStyle = '#2b57d9'
     ctx.font = 'bold 21px Arial, sans-serif'
     ctx.textAlign = 'right'
-    ctx.fillText('trocafarma.com', 958, 1811)
+    ctx.fillText('trocafarma.com', 958, 1830)
     ctx.textAlign = 'left'
 
     return canvas
@@ -422,6 +448,7 @@ function AdItemFields({
     const canvasRef = useRef(null)
     const { id, previewUrl, description, expirationDate, batch, quantity, unitPrice } = item
     const { type, logistics, cidade, estado } = commonData
+    const publishesToSalvadorStatus = isSalvadorStatusLocation(commonData)
     const fileInputId = `file-upload-${id}`
 
     useEffect(() => {
@@ -684,8 +711,8 @@ function AdItemFields({
                             <canvas
                                 ref={canvasRef}
                                 width={1080}
-                                height={1350}
-                                className="block aspect-[4/5] w-full bg-white"
+                                height={1920}
+                                className="block aspect-[9/16] w-full bg-white"
                                 aria-label="Previa visual do post no WhatsApp"
                             />
                             {(!item.previewReady || item.uploadingImage) && (
@@ -697,6 +724,19 @@ function AdItemFields({
 
                         {item.previewError && (
                             <p className="mt-3 text-sm text-red-600">{item.previewError}</p>
+                        )}
+
+                        {publishesToSalvadorStatus ? (
+                            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                                <p className="font-semibold">Este anúncio será publicado automaticamente no Status do TrocaFarma Salvador.</p>
+                                <p className="mt-1">
+                                    Salve o número <a href={SALVADOR_STATUS_PHONE_LINK} target="_blank" rel="noreferrer" className="font-bold text-emerald-700 underline">{SALVADOR_STATUS_PHONE_DISPLAY}</a> nos seus contatos para acompanhar este e os próximos anúncios diretamente pelo WhatsApp.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                Este anúncio não será enviado ao Status {SALVADOR_STATUS_PHONE_DISPLAY}, pois esse canal atende exclusivamente Salvador/BA. O card continuará disponível para compartilhamento.
+                            </div>
                         )}
 
                         <label className="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
@@ -1229,7 +1269,7 @@ const NewAd = () => {
             }
 
             let failedWhatsappNotifications = 0
-            if (statusInicial === 'ATIVO') {
+            if (statusInicial === 'ATIVO' && isSalvadorStatusLocation(commonData)) {
                 const notificationResults = await Promise.allSettled(
                     notifications.map((notification) => notifyStatusBot(notification))
                 )
