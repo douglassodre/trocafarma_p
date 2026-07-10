@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import Autocomplete from '../components/Autocomplete'
 import UrgencyWizard from '../components/UrgencyWizard'
+import SubscriptionRequiredModal from '../components/SubscriptionRequiredModal'
+import { getPublicationAccess, isSubscriptionRequiredError } from '../utils/subscriptionAccess'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
@@ -761,6 +763,7 @@ const NewAd = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const [isUrgencyWizardOpen, setIsUrgencyWizardOpen] = useState(false)
+    const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false)
     const itemCanvasRefs = useRef({})
     const blobUrlsRef = useRef(new Set())
 
@@ -1194,6 +1197,23 @@ const NewAd = () => {
             return
         }
 
+        if (!isEditMode) {
+            try {
+                const publicationAccess = await getPublicationAccess()
+                const plannedPublications = items.length
+                if (!publicationAccess?.allowed || (!publicationAccess.is_subscriber && plannedPublications > publicationAccess.publications_remaining)) {
+                    setIsSubscriptionModalOpen(true)
+                    setLoading(false)
+                    return
+                }
+            } catch (accessError) {
+                console.error('Erro ao verificar franquia de publicações:', accessError)
+                setFeedback('Não foi possível verificar sua franquia de publicações. Tente novamente.')
+                setLoading(false)
+                return
+            }
+        }
+
         const uploadedPaths = []
 
         try {
@@ -1307,7 +1327,12 @@ const NewAd = () => {
             }
 
             console.error(err)
-            setFeedback(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} anuncio: ${err.message}`)
+            if (isSubscriptionRequiredError(err)) {
+                setIsSubscriptionModalOpen(true)
+                setFeedback('')
+            } else {
+                setFeedback(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} anuncio: ${err.message}`)
+            }
         } finally {
             setLoading(false)
         }
@@ -1349,6 +1374,10 @@ const NewAd = () => {
             <UrgencyWizard
                 isOpen={isUrgencyWizardOpen}
                 onClose={() => setIsUrgencyWizardOpen(false)}
+            />
+            <SubscriptionRequiredModal
+                isOpen={isSubscriptionModalOpen}
+                onClose={() => setIsSubscriptionModalOpen(false)}
             />
 
             <Card>
