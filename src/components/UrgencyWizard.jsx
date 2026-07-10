@@ -5,6 +5,8 @@ import { apiService } from '../services/apiService';
 import Autocomplete from './Autocomplete';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import SubscriptionRequiredModal from './SubscriptionRequiredModal';
+import { getPublicationAccess, isSubscriptionRequiredError } from '../utils/subscriptionAccess';
 import {
     STATUS_PHONE_DISPLAY,
     STATUS_PHONE_LINK,
@@ -34,6 +36,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     const [loadingCnpj, setLoadingCnpj] = useState(false);
     const [locationLoading, setLocationLoading] = useState(false);
     const [locationError, setLocationError] = useState('');
+    const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
     // Smart Identify Status
     const [identificationStatus, setIdentificationStatus] = useState('listening'); // listening, checking, known, new
@@ -247,10 +250,23 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         else handleFinalSubmit();
     };
 
+    const ensurePublicationAllowed = async () => {
+        const publicationAccess = await getPublicationAccess();
+        if (!publicationAccess?.allowed) {
+            setIsSubscriptionModalOpen(true);
+            return false;
+        }
+        return true;
+    };
+
     const handleFinalSubmit = async () => {
         setLoading(true);
         try {
             if (authenticatedUser) {
+                if (!await ensurePublicationAllowed()) {
+                    setLoading(false);
+                    return;
+                }
                 await finalizeUrgencyCreation(authenticatedUser);
                 return;
             }
@@ -290,6 +306,10 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
             }
 
             if (!authUser) throw new Error("Falha de autenticação.");
+            if (!await ensurePublicationAllowed()) {
+                setLoading(false);
+                return;
+            }
 
             await finalizeUrgencyCreation(authUser);
 
@@ -404,7 +424,11 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
         } catch (err) {
             console.error(err);
-            alert("Erro final: " + err.message);
+            if (isSubscriptionRequiredError(err)) {
+                setIsSubscriptionModalOpen(true);
+            } else {
+                alert("Erro final: " + err.message);
+            }
             setLoading(false);
         }
     };
@@ -414,6 +438,10 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+            <SubscriptionRequiredModal
+                isOpen={isSubscriptionModalOpen}
+                onClose={() => setIsSubscriptionModalOpen(false)}
+            />
 
             <div className={`relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-lg bg-white shadow-2xl animate-fade-in-up transition-all duration-500 ease-in-out sm:max-h-[calc(100dvh-2rem)] ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
                 <button
@@ -525,7 +553,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 </div>
                                 <div className="flex items-center text-gray-700">
                                     <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
-                                    <span>Taxa de Gestão de Mútuo: <strong>1%</strong> (apenas se houver sucesso).</span>
+                                    <span><strong>Sem taxa de sucesso:</strong> publicações adicionais são liberadas pela assinatura.</span>
                                 </div>
                             </div>
 
