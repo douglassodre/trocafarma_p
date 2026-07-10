@@ -87,8 +87,8 @@ Deno.serve(async (req) => {
             line_items: [{ price: priceId, quantity: 1 }],
             mode: 'subscription',
             subscription_data: {
-                trial_period_days: 10,
                 metadata: { supabase_user_id: user.id },
+                ...(profile?.stripe_customer_id ? {} : { trial_period_days: 10 }),
             },
             success_url: finalSuccessUrl,
             cancel_url: finalCancelUrl,
