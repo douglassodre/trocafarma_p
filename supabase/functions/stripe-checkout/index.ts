@@ -64,32 +64,44 @@ Deno.serve(async (req) => {
             throw new Error("Invalid JSON body");
         }
 
-        const { userId, email, successUrl, cancelUrl } = body;
+        const { successUrl, cancelUrl } = body;
+
+        const { data: profile, error: profileError } = await supabaseClient
+            .from('perfis_usuarios')
+            .select('stripe_customer_id, stripe_subscription_id, subscription_status, is_premium')
+            .eq('id', user.id)
+            .single();
+
+        if (profileError) throw profileError;
+
+        if (profile?.is_premium && ['active', 'trialing'].includes(profile.subscription_status)) {
+            return jsonResponse({ error: 'Sua assinatura já está ativa.' }, 409);
+        }
 
         const isProduction = Deno.env.get('ENVIRONMENT') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID');
         const finalSuccessUrl = isProduction ? envSuccessUrl : (successUrl ?? envSuccessUrl);
         const finalCancelUrl = isProduction ? envCancelUrl : (cancelUrl ?? envCancelUrl);
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionParams: Stripe.Checkout.SessionCreateParams = {
             payment_method_types: ['boleto', 'card'],
-            line_items: [
-                {
-                    price: priceId,
-                    quantity: 1,
-                },
-            ],
+            line_items: [{ price: priceId, quantity: 1 }],
             mode: 'subscription',
             subscription_data: {
                 trial_period_days: 10,
-                metadata: {
-                    supabase_user_id: userId || user?.id,
-                },
+                metadata: { supabase_user_id: user.id },
             },
             success_url: finalSuccessUrl,
             cancel_url: finalCancelUrl,
-            client_reference_id: userId || user?.id,
-            customer_email: email || user?.email,
-        });
+            client_reference_id: user.id,
+        };
+
+        if (profile?.stripe_customer_id) {
+            sessionParams.customer = profile.stripe_customer_id;
+        } else {
+            sessionParams.customer_email = user.email;
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionParams);
 
         return jsonResponse({ sessionId: session.id, url: session.url })
     } catch (error) {
