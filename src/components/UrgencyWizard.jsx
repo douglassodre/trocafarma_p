@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { apiService } from '../services/apiService';
 import Autocomplete from './Autocomplete';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
     STATUS_PHONE_DISPLAY,
     STATUS_PHONE_LINK,
@@ -25,11 +26,14 @@ const formatCpf = (value) => {
 
 const UrgencyWizard = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
+    const { user: authenticatedUser, userProfile } = useAuth();
     const storyCanvasRef = useRef(null);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [loadingCpf, setLoadingCpf] = useState(false);
     const [loadingCnpj, setLoadingCnpj] = useState(false);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState('');
 
     // Smart Identify Status
     const [identificationStatus, setIdentificationStatus] = useState('listening'); // listening, checking, known, new
@@ -54,6 +58,56 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         contato_email: '',
         password: ''
     });
+
+    const requestDeviceLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationError('Geolocalização não disponível. Preencha cidade e UF manualmente.');
+            return;
+        }
+
+        setLocationLoading(true);
+        setLocationError('');
+        navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`);
+                if (!response.ok) throw new Error('Falha ao consultar localização.');
+                const data = await response.json();
+                const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || '';
+                const isoState = data.address?.['ISO3166-2-lvl4'] || data.address?.['ISO3166-2-lvl3'] || '';
+                const state = isoState.includes('-') ? isoState.split('-').pop() : (data.address?.state || '');
+
+                setFormData(prev => ({
+                    ...prev,
+                    cidade: city,
+                    estado: state.toUpperCase().slice(0, 2),
+                    whatsapp_status_consent: false
+                }));
+            } catch (error) {
+                console.error('Erro ao identificar localização:', error);
+                setLocationError('Não foi possível identificar cidade e UF. Preencha manualmente.');
+            } finally {
+                setLocationLoading(false);
+            }
+        }, () => {
+            setLocationLoading(false);
+            setLocationError('Permissão de localização negada. Preencha cidade e UF manualmente.');
+        });
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (authenticatedUser && userProfile) {
+            setFormData(prev => ({
+                ...prev,
+                contato_nome: userProfile.nome || '',
+                contato_email: userProfile.email || authenticatedUser.email || '',
+                contato_instituicao: userProfile.instituicoes?.nome_fantasia || ''
+            }));
+        }
+
+        if (!formData.cidade) requestDeviceLocation();
+    }, [isOpen]);
 
     const handleCpfChange = (event) => {
         const maskedCpf = formatCpf(event.target.value);
@@ -168,8 +222,16 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         if (step === 1 && !formData.item_nome) return alert("Selecione um item.");
         if (step === 2 && (!formData.quantidade || !formData.urgencia_label || !formData.cidade || !formData.estado)) return alert("Preencha quantidade, prazo, cidade e UF.");
 
-        // Step 4 Validation
-        if (step === 4) {
+        if (step === 3 && authenticatedUser) {
+            if (isSalvadorLocation(formData) && !formData.whatsapp_status_consent) {
+                return alert("Confirme a autorização para publicar a ruptura no Status do WhatsApp.");
+            }
+            handleFinalSubmit();
+            return;
+        }
+
+        // Step 4 Validation for visitors
+        if (step === 4 && !authenticatedUser) {
             if (identificationStatus === 'listening') return alert("Informe um CPF válido.");
             if (identificationStatus === 'checking') return alert("Aguarde a consulta do CPF.");
             if (identificationStatus === 'error') return alert("Não foi possível consultar o CPF. Tente novamente.");
@@ -180,16 +242,19 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
             }
         }
 
-        if (step < 4) {
-            setStep(step + 1);
-        } else {
-            handleFinalSubmit();
-        }
+        const finalStep = authenticatedUser ? 3 : 4;
+        if (step < finalStep) setStep(step + 1);
+        else handleFinalSubmit();
     };
 
     const handleFinalSubmit = async () => {
         setLoading(true);
         try {
+            if (authenticatedUser) {
+                await finalizeUrgencyCreation(authenticatedUser);
+                return;
+            }
+
             let authUser = null;
 
             if (identificationStatus === 'known') {
@@ -362,7 +427,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                 <div className="h-2 bg-gray-100 w-full">
                     <div
                         className="h-full bg-brand-deep transition-all duration-300"
-                        style={{ width: `${(step / 4) * 100}%` }}
+                        style={{ width: `${(step / (authenticatedUser ? 3 : 4)) * 100}%` }}
                     ></div>
                 </div>
 
@@ -432,6 +497,16 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                             className="w-full rounded-lg border border-gray-200 p-3 uppercase outline-none focus:border-brand-deep" />
                                     </div>
                                 </div>
+
+                                <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                                    <span className={locationError ? 'text-amber-700' : 'text-gray-500'}>
+                                        {locationLoading ? 'Identificando sua localização...' : locationError || 'Cidade e UF preenchidas pela localização do dispositivo.'}
+                                    </span>
+                                    <button type="button" onClick={requestDeviceLocation} disabled={locationLoading}
+                                        className="font-semibold text-brand-deep hover:underline disabled:opacity-50">
+                                        Usar localização atual
+                                    </button>
+                                </div>
                         </div>
                     )}
 
@@ -446,18 +521,39 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             <div className="bg-brand-lavender/10 p-6 rounded-lg space-y-4 text-left">
                                 <div className="flex items-center text-gray-700">
                                     <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
-                                    <span>Sua solicitação será enviada para <strong>42 instituições</strong> em Salvador.</span>
+                                    <span>Sua solicitação será enviada para instituições da região de <strong>{formData.cidade}</strong>.</span>
                                 </div>
                                 <div className="flex items-center text-gray-700">
                                     <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
                                     <span>Taxa de Gestão de Mútuo: <strong>1%</strong> (apenas se houver sucesso).</span>
                                 </div>
                             </div>
+
+                            {authenticatedUser && (
+                                <div className="space-y-3 border-t border-gray-200 pt-5 text-left">
+                                    <h3 className="font-semibold text-gray-900">Prévia do Status</h3>
+                                    <div className="mx-auto w-full max-w-[230px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+                                        <canvas ref={storyCanvasRef} width={1080} height={1920} className="block aspect-[9/16] w-full" />
+                                    </div>
+                                    {isSalvadorLocation(formData) ? (
+                                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                                            <input type="checkbox" checked={formData.whatsapp_status_consent}
+                                                onChange={(e) => setFormData({ ...formData, whatsapp_status_consent: e.target.checked })}
+                                                className="mt-1 h-4 w-4" />
+                                            <span>Concordo que esta ruptura seja publicada no Status do WhatsApp do TrocaFarma Salvador, número <a href={STATUS_PHONE_LINK} target="_blank" rel="noreferrer" className="font-bold underline">{STATUS_PHONE_DISPLAY}</a>.</span>
+                                        </label>
+                                    ) : (
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                            O canal {STATUS_PHONE_DISPLAY} atende exclusivamente Salvador/BA. A ruptura será registrada no site sem envio para esse Status.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Step 4: Smart Identify Flow */}
-                    {step === 4 && (
+                    {step === 4 && !authenticatedUser && (
                         <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2 transition-all">
                             <h2 className="text-2xl font-bold text-gray-900">Finalizar</h2>
                             <p className="text-gray-500 text-sm">Identificação do solicitante.</p>
@@ -611,12 +707,12 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
                         <button
                             onClick={handleNext}
-                            disabled={loading || identificationStatus === 'checking' || identificationStatus === 'error'}
+                            disabled={loading || (!authenticatedUser && (identificationStatus === 'checking' || identificationStatus === 'error'))}
                             className={`px-8 py-3 rounded-lg font-bold shadow-lg transform active:scale-95 transition-all flex items-center 
                                 ${step === 4 && identificationStatus !== 'listening' ? 'bg-brand-deep hover:bg-brand-royal text-white' : 'bg-brand-ink hover:bg-brand-deep text-white'}
                             `}
                         >
-                            {loading ? 'Processando...' : step === 4 ? (identificationStatus === 'known' ? 'Entrar e Publicar' : 'Cadastrar e Publicar') : 'Continuar'}
+                            {loading ? 'Processando...' : authenticatedUser && step === 3 ? 'Publicar ruptura' : step === 4 ? (identificationStatus === 'known' ? 'Entrar e Publicar' : 'Cadastrar e Publicar') : 'Continuar'}
                             {!loading && <ArrowRight className="ml-2 w-4 h-4" />}
                         </button>
                     </div>
