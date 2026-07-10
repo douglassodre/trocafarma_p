@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -11,7 +11,8 @@ import {
 const MyAds = () => {
     const { user } = useAuth()
     const navigate = useNavigate()
-    const [activeTab, setActiveTab] = useState('ofertas') // 'ofertas', 'urgencias'
+    const location = useLocation()
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab === 'urgencias' ? 'urgencias' : 'ofertas') // 'ofertas', 'urgencias'
     const [ads, setAds] = useState([])
     const [urgencies, setUrgencies] = useState([])
     const [loading, setLoading] = useState(true)
@@ -121,6 +122,14 @@ const MyAds = () => {
             loadData()
         }
     }, [user])
+
+    useEffect(() => {
+        const urgencyId = location.state?.highlightUrgencyId
+        if (activeTab !== 'urgencias' || loading || !urgencyId) return
+
+        const element = document.getElementById(`urgency-${urgencyId}`)
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, [activeTab, loading, location.state?.highlightUrgencyId])
 
     const handleWhatsAppShare = (ad, e) => {
         e.stopPropagation()
@@ -539,7 +548,8 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {urgencies.map((urgency) => (
                                 <div key={urgency.id}
-                                    className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${urgency.status !== 'ATIVA' ? 'opacity-75 grayscale-[0.5]' : 'border-t-4 border-t-red-500'}`}
+                                    id={`urgency-${urgency.id}`}
+                                    className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${urgency.status !== 'ATIVA' ? 'opacity-75 grayscale-[0.5]' : 'border-t-4 border-t-red-500'} ${location.state?.highlightUrgencyId === urgency.id ? 'ring-4 ring-red-300 ring-offset-2' : ''}`}
                                 >
                                     {(urgency.transacoes?.filter(tx => tx.status !== 'RECUSADO').length || 0) > 0 && (
                                         <button
