@@ -1,9 +1,10 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity } from 'lucide-react'
+import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity, Siren } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import UrgencyResponseModal from '../components/UrgencyResponseModal'
+import UrgencyWizard from '../components/UrgencyWizard'
 
 import logo from '../assets/logo.png'
 
@@ -22,6 +23,7 @@ const Home = () => {
 
     // Urgency Response Modal State
     const [responseModalId, setResponseModalId] = useState(null)
+    const [isUrgencyWizardOpen, setIsUrgencyWizardOpen] = useState(false)
 
     // KPI State
     const [kpis, setKpis] = useState({
@@ -136,6 +138,11 @@ const Home = () => {
 
     return (
         <div className="min-h-screen bg-brand-mist">
+            <UrgencyWizard
+                isOpen={isUrgencyWizardOpen}
+                onClose={() => setIsUrgencyWizardOpen(false)}
+            />
+
             {/* Response Modal */}
             {responseModalId && (
                 <UrgencyResponseModal
@@ -193,13 +200,22 @@ const Home = () => {
                                 Sua instituição <span className="font-semibold text-white">{userProfile.instituicoes?.nome_fantasia}</span> está ativa e pronta para conectar.
                             </p>
                         </div>
-                        <button
-                            onClick={() => navigate('/novo-anuncio')}
-                            className="flex items-center space-x-2 bg-white text-brand-deep px-6 py-3 rounded-lg font-bold shadow-md hover:bg-brand-mist hover:shadow-xl transition transform hover:-translate-y-1"
-                        >
-                            <PlusCircle className="h-5 w-5" />
-                            <span>Novo Anúncio</span>
-                        </button>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <button
+                                onClick={() => setIsUrgencyWizardOpen(true)}
+                                className="flex items-center justify-center space-x-2 rounded-lg bg-red-600 px-6 py-3 font-bold text-white shadow-md transition hover:-translate-y-1 hover:bg-red-700 hover:shadow-xl"
+                            >
+                                <Siren className="h-5 w-5" />
+                                <span>Registrar ruptura</span>
+                            </button>
+                            <button
+                                onClick={() => navigate('/novo-anuncio')}
+                                className="flex items-center justify-center space-x-2 rounded-lg bg-white px-6 py-3 font-bold text-brand-deep shadow-md transition hover:-translate-y-1 hover:bg-brand-mist hover:shadow-xl"
+                            >
+                                <PlusCircle className="h-5 w-5" />
+                                <span>Novo Anúncio</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Decorative Circles */}
@@ -290,7 +306,7 @@ const Home = () => {
                 {/* ---------------------------------------- */}
 
                 {/* Dashboard Stats/Quick Links (Placeholder for now) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <div
                         onClick={() => navigate('/meus-anuncios')}
                         className="bg-white p-6 rounded-lg shadow-sm border border-brand-lavender/30 hover:shadow-md transition cursor-pointer group"
@@ -318,6 +334,20 @@ const Home = () => {
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900">Minhas Solicitações</h3>
                         <p className="text-sm text-gray-500 mt-1">Veja o status dos seus pedidos e entregas.</p>
+                    </div>
+
+                    <div
+                        onClick={() => setIsUrgencyWizardOpen(true)}
+                        className="cursor-pointer rounded-lg border border-red-200 bg-white p-6 shadow-sm transition hover:shadow-md group"
+                    >
+                        <div className="mb-4 flex items-center justify-between">
+                            <div className="rounded-lg bg-red-50 p-3 transition group-hover:bg-red-100">
+                                <Siren className="h-6 w-6 text-red-600" />
+                            </div>
+                            <span className="text-sm font-semibold text-red-500">Urgente</span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900">Ruptura de Estoque</h3>
+                        <p className="mt-1 text-sm text-gray-500">Solicite rapidamente um item em falta.</p>
                     </div>
 
                     <div
