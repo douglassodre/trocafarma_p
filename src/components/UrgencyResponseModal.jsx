@@ -7,7 +7,6 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [transaction, setTransaction] = useState(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -68,9 +67,6 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
     const parseCurrency = (value) => {
         if (!value) return 0;
-        return parseFloat(value.replace(/[^\d,]/g, '').replace(',', '.')) / 100; // This handles the raw input better if manual parsing is needed, but usually we parse the valid numeric string.
-        // Actually for the "R$ 1.234,56" string:
-        // 1. Remove non-numeric chars except comma
         const cleanString = value.replace(/\D/g, '');
         return parseFloat(cleanString) / 100;
     };
@@ -151,63 +147,23 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
 
             if (adError) throw adError;
 
-            // 2. Create Transaction via Backend (Stripe Billing)
-            // 2. Create Transaction via Backend (Stripe Billing)
-            const unitPriceInCents = parseInt(formData.unitPrice.replace(/\D/g, ''), 10) || 0;
-
-            console.log("Debugging: Starting raw fetch request...");
-
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
-            if (!token) throw new Error("No access token found");
-
-            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-transaction`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
+            // 2. Registra a resposta diretamente na ruptura. Rupturas não geram
+            // taxa de sucesso no Stripe: elas fazem parte da assinatura.
+            const { error: transactionError } = await supabase
+                .from('transacoes')
+                .insert([{
                     anuncio_id: newAd.id,
-                    fornecedor_id: currentUser.id, // Current user is answering
-                    status: 'PENDENTE', // 'PENDENTE' until accepted? Or 'SOLICITADO'? Original was 'PENDENTE'
+                    urgencia_id: urgency.id,
+                    fornecedor_id: currentUser.id,
+                    solicitante_id: urgency.usuario_id,
+                    status: 'PENDENTE',
                     tipo: formData.type,
-                    quantidade: formData.quantity,
-                    data_devolucao_prevista: formData.type === 'EMPRESTIMO' ? formData.returnDate : null,
-                    unit_price: unitPriceInCents
-                })
-            });
+                    quantidade: Number(formData.quantity),
+                    data_devolucao_prevista: formData.type === 'EMPRESTIMO' ? formData.returnDate : null
+                }]);
 
-            const responseText = await response.text();
-            console.log("Raw Response:", responseText);
+            if (transactionError) throw transactionError;
 
-            let transData;
-            try {
-                transData = JSON.parse(responseText);
-            } catch (e) {
-                throw new Error(`Failed to parse response: ${responseText}`);
-            }
-
-            if (!response.ok) {
-                console.error("Function Error Details:", transData);
-                throw new Error(
-                    `Erro na função (${response.status}): ${transData.error || 'Sem mensagem'} ` +
-                    `${transData.details ? JSON.stringify(transData.details) : ''} `
-                );
-            }
-
-            const trans = transData?.transaction;
-
-            // 3. Update Urgency Status
-            const { error: updateError } = await supabase
-                .from('solicitacoes_urgentes')
-                .update({ status: 'EM_ATENDIMENTO' })
-                .eq('id', urgencyId);
-
-            if (updateError) throw updateError;
-
-            setTransaction(trans);
             setSuccess(true);
 
         } catch (err) {
@@ -239,7 +195,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                         </div>
                         <h2 className="text-2xl font-bold text-gray-900">Atendimento Confirmado!</h2>
                         <p className="text-gray-600">
-                            A transação foi criada com sucesso! O solicitante será notificado.
+                            Sua oferta foi enviada ao solicitante. Ele poderá aceitar ou recusar em Minhas Urgências.
                         </p>
 
                         <div className="bg-brand-lavender/10 p-4 rounded-lg text-left space-y-3">
@@ -325,7 +281,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-periwinkle focus:border-brand-periwinkle transition"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Necessário para cálculo de taxas e economia. <strong>Este valor não representa uma venda.</strong>
+                                        Informe apenas o custo de referência. <strong>Não há taxa de sucesso: o atendimento está incluído na assinatura.</strong>
                                     </p>
                                 </div>
 
