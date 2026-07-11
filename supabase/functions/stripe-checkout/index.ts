@@ -35,15 +35,21 @@ Deno.serve(async (req) => {
         const envCancelUrl = getRequiredEnv('STRIPE_CHECKOUT_CANCEL_URL');
 
         const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+            getRequiredEnv('SUPABASE_URL'),
+            getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
         )
+
+        const authHeader = req.headers.get('Authorization') ?? '';
+        const jwt = authHeader.replace(/^Bearer\s+/i, '');
+
+        if (!jwt) {
+            return jsonResponse({ error: 'Unauthorized' }, 401)
+        }
 
         const {
             data: { user },
             error: authError
-        } = await supabaseClient.auth.getUser()
+        } = await supabaseClient.auth.getUser(jwt)
 
         if (authError || !user) {
             console.error("Auth Error:", authError);
@@ -65,6 +71,7 @@ Deno.serve(async (req) => {
         }
 
         const { userId, email, successUrl, cancelUrl } = body;
+        const checkoutUserId = userId || user.id;
 
         const isProduction = Deno.env.get('ENVIRONMENT') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID');
         const finalSuccessUrl = isProduction ? envSuccessUrl : (successUrl ?? envSuccessUrl);
@@ -83,12 +90,12 @@ Deno.serve(async (req) => {
             subscription_data: {
                 trial_period_days: 10,
                 metadata: {
-                    supabase_user_id: userId || user?.id,
+                    supabase_user_id: checkoutUserId,
                 },
             },
             success_url: finalSuccessUrl,
             cancel_url: finalCancelUrl,
-            client_reference_id: userId || user?.id,
+            client_reference_id: checkoutUserId,
             customer_email: email || user?.email,
         });
 
