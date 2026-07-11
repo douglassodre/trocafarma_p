@@ -14,7 +14,7 @@ const toCheckoutUrl = (value, fallback) => {
 const SubscriptionRequiredModal = ({ isOpen, onClose, returnTo }) => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 20,00')
+    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 24,90')
 
     useEffect(() => {
         if (!isOpen) return

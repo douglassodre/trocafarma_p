@@ -26,7 +26,7 @@ const product = await stripe.products.create({
 
 const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: 2000,
+    unit_amount: 2490,
     currency: "brl",
     recurring: {
         interval: "month",

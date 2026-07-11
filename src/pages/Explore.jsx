@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
     Search, Filter, MapPin, Calendar,
-    Package, ArrowRight, X, MessageCircle, RefreshCw, Truck, Share2, AlertTriangle
+    Package, X, MessageCircle, RefreshCw, Truck, Share2, Clock
 } from 'lucide-react'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { generateReceiptPDF } from '../utils/pdfGenerator'
 import UrgencyResponseModal from '../components/UrgencyResponseModal'
 
 const Explore = () => {
     const { user } = useAuth()
+    const navigate = useNavigate()
     const [ads, setAds] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -73,6 +74,7 @@ const Explore = () => {
                 .select('*')
                 .eq('status', 'ATIVA')
                 .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+                .order('created_at', { ascending: false })
 
             if (urgencyError) throw urgencyError
 
@@ -86,7 +88,7 @@ const Explore = () => {
                 quantidade: u.quantidade,
                 instituicoes: { nome_fantasia: u.contato_instituicao || 'Instituição Parceira' },
                 cidade: u.cidade || 'Bahia',
-                estado: 'BA',
+                estado: u.estado || 'BA',
                 lote: 'N/A',
                 data_vencimento: new Date().toISOString(),
                 created_at: u.created_at,
@@ -106,8 +108,9 @@ const Explore = () => {
 
             if (adsError) throw adsError
 
-            // Merge: Urgencies First
-            setAds([...formattedUrgencies, ...adsData])
+            setAds([...formattedUrgencies, ...adsData].sort((a, b) => {
+                return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+            }))
         } catch (error) {
             console.error('Error fetching ads:', error)
         } finally {
@@ -430,7 +433,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                 onClick={async () => {
                                                     try {
                                                         setLoading(true)
-                                                        const { data: transactionData, error } = await supabase.functions.invoke('create-transaction', {
+                                                        const { error } = await supabase.functions.invoke('create-transaction', {
                                                             body: {
                                                                 anuncio_id: selectedAd.id,
                                                                 fornecedor_id: selectedAd.usuario_id,
@@ -471,7 +474,7 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                     </div>
                                     <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitação Enviada!</h2>
                                     <p className="text-slate-600 max-w-md mx-auto mb-8">
-                                        O fornecedor foi notificado. Entre em contato agora para combinar a {selectedAd.logistica === 'ENTREGA' ? 'entrega' : 'retirada'}.
+                                        O fornecedor foi notificado. Aguarde o aceite dele; os contatos ficam liberados em Minhas Solicitacoes quando a solicitacao for aprovada.
                                     </p>
 
                                     <div className="bg-brand-lavender/10 p-6 rounded-lg border border-brand-lavender/30 text-left max-w-lg mx-auto mb-8">
@@ -479,22 +482,11 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                         <ul className="space-y-4">
                                             <li className="flex items-start gap-3">
                                                 <div className="bg-white p-2 rounded shadow-sm">
-                                                    <MessageCircle className="h-5 w-5 text-green-600" />
+                                                    <Clock className="h-5 w-5 text-orange-600" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-slate-900">WhatsApp Oficial</p>
-                                                    {selectedAd.perfis_usuarios?.whatsapp ? (
-                                                        <a
-                                                            href={`https://wa.me/55${selectedAd.perfis_usuarios.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, vi seu anúncio do item ${selectedAd.descricao_customizada} no Trocafarma e tenho interesse.`)}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-green-600 text-sm hover:underline"
-                                                        >
-                                                            Iniciar conversa com {selectedAd.instituicoes?.nome_fantasia}
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-gray-400 text-sm">Número não disponível</span>
-                                                    )}
+                                                    <p className="font-medium text-slate-900">Aguardando aceite</p>
+                                                    <p className="text-gray-600 text-sm">Acompanhe este pedido em Minhas Solicitacoes.</p>
                                                 </div>
                                             </li>
                                             <li className="flex items-start gap-3">
@@ -502,17 +494,17 @@ Instituição: ${selectedAd.instituicoes?.nome_fantasia || 'Nome da Instituiçã
                                                     <MapPin className="h-5 w-5 text-brand-deep" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-slate-900">Endereço de Retirada</p>
-                                                    <p className="text-slate-600 text-sm">{selectedAd.cidade}/{selectedAd.estado}</p>
-                                                    <span className="text-xs text-slate-400">Seg-Sex, 08h às 18h</span>
+                                                    <p className="font-medium text-slate-900">Logistica</p>
+                                                    <p className="text-slate-600 text-sm">{selectedAd.logistica || 'A combinar apos aceite'}</p>
+                                                    <span className="text-xs text-slate-400">O contato sera liberado apos aprovacao.</span>
                                                 </div>
                                             </li>
                                         </ul>
                                     </div>
 
-                                    <Button variant="outline" className="w-full gap-2" onClick={() => generateReceiptPDF(selectedAd, user)}>
+                                    <Button className="w-full gap-2 bg-brand-deep hover:bg-brand-royal" onClick={() => navigate('/minhas-solicitacoes')}>
                                         <Package className="h-4 w-4" />
-                                        Baixar Comprovante (PDF)
+                                        Ver em Minhas Solicitacoes
                                     </Button>
                                 </div>
                             )}

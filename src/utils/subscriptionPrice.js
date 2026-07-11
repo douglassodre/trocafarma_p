@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 
 const FALLBACK_PRICE = {
-    unit_amount: 2000,
+    unit_amount: 2490,
     currency: 'brl',
     interval: 'month'
 }

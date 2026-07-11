@@ -33,7 +33,6 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     const storyCanvasRef = useRef(null);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [loadingCpf, setLoadingCpf] = useState(false);
     const [loadingCnpj, setLoadingCnpj] = useState(false);
     const [locationLoading, setLocationLoading] = useState(false);
     const [locationError, setLocationError] = useState('');
@@ -70,7 +69,8 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
     const saveSubscriptionDraft = () => {
         if (typeof window === 'undefined') return;
-        const { password, ...safeFormData } = formData;
+        const safeFormData = { ...formData };
+        delete safeFormData.password;
         window.localStorage.setItem(URGENCY_SUBSCRIPTION_DRAFT_KEY, JSON.stringify({
             formData: safeFormData,
             step,
@@ -142,7 +142,8 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                 ...prev,
                 contato_nome: userProfile.nome || '',
                 contato_email: userProfile.email || authenticatedUser.email || '',
-                contato_instituicao: userProfile.instituicoes?.nome_fantasia || ''
+                contato_instituicao: userProfile.instituicoes?.nome_fantasia || '',
+                whatsapp: userProfile.whatsapp || prev.whatsapp || ''
             }));
         }
 
@@ -439,6 +440,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                     whatsapp_status_consent: formData.whatsapp_status_consent,
                     contato_nome: formData.contato_nome,
                     contato_email: formData.contato_email,
+                    contato_whatsapp: formData.whatsapp,
                     contato_instituicao: formData.contato_instituicao,
                     usuario_id: user.id,
                     status: 'ATIVA'

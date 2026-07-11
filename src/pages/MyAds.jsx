@@ -64,8 +64,10 @@ const MyAds = () => {
                         created_at,
                         quantidade,
                         solicitante_id,
-                        solicitante:solicitante_id (
+                        solicitante:perfis_usuarios!transacoes_solicitante_id_fkey (
                             nome,
+                            email,
+                            whatsapp,
                             instituicoes (
                                 nome_fantasia
                             )
@@ -110,6 +112,30 @@ const MyAds = () => {
         } catch (error) {
             console.error('Error fetching urgencies:', error)
         }
+    }
+
+    const fetchUrgencyById = async (urgencyId) => {
+        const { data, error } = await supabase
+            .from('solicitacoes_urgentes')
+            .select(`
+                *,
+                transacoes!transacoes_urgencia_id_fkey (
+                    id,
+                    status,
+                    created_at,
+                    quantidade,
+                    tipo,
+                    data_devolucao_prevista,
+                    fornecedor_id,
+                    fornecedor:fornecedor_id (nome, email, whatsapp),
+                    anuncio:anuncio_id (preco_unitario, lote, data_vencimento, logistica)
+                )
+            `)
+            .eq('id', urgencyId)
+            .single()
+
+        if (error) throw error
+        return data
     }
 
     useEffect(() => {
@@ -187,10 +213,15 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
             }
 
             await fetchUrgencies()
-            setSelectedUrgency(null)
-            alert(accepted
-                ? 'Atendimento aceito. Os contatos do fornecedor já estão disponíveis nesta urgência.'
-                : 'Oferta recusada.')
+
+            if (accepted) {
+                const updatedUrgency = await fetchUrgencyById(selectedUrgency.id)
+                setSelectedUrgency(updatedUrgency)
+                alert('Atendimento aceito. O contato do fornecedor foi liberado abaixo.')
+            } else {
+                setSelectedUrgency(null)
+                alert('Oferta recusada.')
+            }
         } catch (error) {
             console.error('Error handling urgency response:', error)
             alert('Não foi possível atualizar esta oferta.')
@@ -347,6 +378,23 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
         // But maybe exclude rejected ones if they are not relevant anymore? 
         // Let's count all for now to be safe and showing activity.
         return ad.transacoes?.length || 0
+    }
+
+    const getWhatsAppLink = (whatsapp, itemName) => {
+        const digits = String(whatsapp || '').replace(/\D/g, '')
+        if (!digits) return ''
+        const normalized = digits.startsWith('55') ? digits : `55${digits}`
+        const message = encodeURIComponent(`Ola, aceitei sua oferta para atender a urgencia do item ${itemName || ''} no Trocafarma.`)
+        return `https://wa.me/${normalized}?text=${message}`
+    }
+
+    const getDeliveryStatusText = (tx) => {
+        const logistics = tx.anuncio?.logistica || 'A COMBINAR'
+        if (tx.status === 'EM_TRANSITO') return `Em transito (${logistics})`
+        if (tx.status === 'CONCLUIDO' || tx.status === 'FINALIZADA') return `Concluido (${logistics})`
+        if (tx.status === 'EM_ANDAMENTO') return `Aceito, logistica ${logistics}`
+        if (tx.status === 'PENDENTE') return `Aguardando sua decisao (${logistics})`
+        return `${tx.status} (${logistics})`
     }
 
     if (loading) return (
@@ -642,11 +690,13 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                             </span>
                                             <h3 className="font-bold text-gray-900 mt-3">{tx.fornecedor?.nome || 'Fornecedor cadastrado'}</h3>
                                             <p className="text-sm text-gray-600">{tx.tipo} · {tx.quantidade} unidade(s)</p>
+                                            <p className="text-xs text-gray-500 mt-1">{getDeliveryStatusText(tx)}</p>
                                         </div>
                                         <div className="text-right text-sm text-gray-600">
                                             <p>Lote: <strong>{tx.anuncio?.lote || 'N/I'}</strong></p>
                                             <p>Validade: <strong>{tx.anuncio?.data_vencimento ? new Date(`${tx.anuncio.data_vencimento}T12:00:00`).toLocaleDateString() : 'N/I'}</strong></p>
                                             <p>Custo ref.: <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.anuncio?.preco_unitario || 0)}</strong></p>
+                                            <p>Logistica: <strong>{tx.anuncio?.logistica || 'A COMBINAR'}</strong></p>
                                         </div>
                                     </div>
                                     {tx.status === 'PENDENTE' && (
@@ -655,11 +705,22 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                             <button onClick={() => handleUrgencyResponse(tx.id, false)} className="flex-1 border border-red-200 text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50">Recusar</button>
                                         </div>
                                     )}
-                                    {tx.status === 'EM_ANDAMENTO' && (
+                                    {['EM_ANDAMENTO', 'EM_TRANSITO', 'CONCLUIDO', 'FINALIZADA'].includes(tx.status) && (
                                         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900 space-y-1">
                                             <p className="font-semibold">Contato liberado para continuidade:</p>
                                             <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {tx.fornecedor?.email || 'E-mail não informado'}</p>
                                             <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> {tx.fornecedor?.whatsapp || 'WhatsApp não informado'}</p>
+                                            {tx.fornecedor?.whatsapp && (
+                                                <a
+                                                    href={getWhatsAppLink(tx.fornecedor.whatsapp, selectedUrgency.item_nome)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-2 inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 font-semibold text-white hover:bg-green-700"
+                                                >
+                                                    <Phone className="h-4 w-4" />
+                                                    Abrir WhatsApp
+                                                </a>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -709,7 +770,9 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                                     tx.status === 'EM_TRANSITO' ? 'bg-orange-100 text-orange-700' :
                                                                         tx.status === 'CONCLUIDO' ? 'bg-green-100 text-green-700' :
                                                                             'bg-red-100 text-red-700'}`}>
-                                                            {tx.status === 'PENDENTE' ? 'AGUARDANDO ACEITE' : tx.status}
+                                                            {tx.status === 'PENDENTE'
+                                                                ? (selectedAd.status === 'RESERVADO_MATCH' ? 'AGUARDANDO ACEITE DO SOLICITANTE' : 'AGUARDANDO SEU ACEITE')
+                                                                : tx.status}
                                                         </span>
                                                         <span className="text-xs text-gray-400">
                                                             {new Date(tx.created_at).toLocaleDateString()}
@@ -722,7 +785,10 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                         <span className="font-medium">Responsável:</span> {tx.solicitante?.nome || 'N/A'}
                                                     </p>
                                                     <p className="text-sm text-gray-600">
-                                                        <span className="font-medium">Responsável:</span> {tx.solicitante?.nome || 'N/A'}
+                                                        <span className="font-medium">E-mail:</span> {tx.solicitante?.email || 'N/A'}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <span className="font-medium">WhatsApp:</span> {tx.solicitante?.whatsapp || 'N/A'}
                                                     </p>
                                                     <p className="text-sm text-gray-600">
                                                         <span className="font-medium">Logística:</span> {selectedAd.logistica || 'A combinar'}
@@ -761,7 +827,7 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                                 </div>
 
                                                 <div className="flex flex-col gap-2 min-w-[140px]">
-                                                    {tx.status === 'SOLICITADO' && (
+                                                    {(tx.status === 'SOLICITADO' || (tx.status === 'PENDENTE' && selectedAd.status !== 'RESERVADO_MATCH')) && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleApprove(tx.id, selectedAd.id)}

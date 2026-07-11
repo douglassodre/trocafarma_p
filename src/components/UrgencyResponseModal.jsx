@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, CheckCircle, Truck, Building2, User, Coins, Calendar, RefreshCw, Package } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, Truck, User, Coins, Calendar, RefreshCw, Package, Phone, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
@@ -17,7 +17,8 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
         validade: '',
         returnDate: '',
         exchangeItems: '',
-        quantity: ''
+        quantity: '',
+        logistics: 'A COMBINAR'
     });
 
     useEffect(() => {
@@ -40,7 +41,26 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                 .single();
 
             if (error) throw error;
-            setUrgency(data);
+
+            let profileWhatsapp = '';
+            if (data?.usuario_id) {
+                const { data: profile, error: profileError } = await supabase
+                    .from('perfis_usuarios')
+                    .select('whatsapp')
+                    .eq('id', data.usuario_id)
+                    .maybeSingle();
+
+                if (profileError) {
+                    console.warn('Nao foi possivel carregar WhatsApp do solicitante:', profileError);
+                } else {
+                    profileWhatsapp = profile?.whatsapp || '';
+                }
+            }
+
+            setUrgency({
+                ...data,
+                contato_whatsapp: data?.contato_whatsapp || profileWhatsapp
+            });
         } catch (err) {
             console.error(err);
             onClose();
@@ -69,6 +89,14 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
         if (!value) return 0;
         const cleanString = value.replace(/\D/g, '');
         return parseFloat(cleanString) / 100;
+    };
+
+    const formatWhatsAppUrl = (whatsapp) => {
+        const digits = String(whatsapp || '').replace(/\D/g, '');
+        if (!digits) return '';
+        const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+        const message = encodeURIComponent(`Ola, confirmei atendimento para a urgencia do item ${urgency?.item_nome || ''} no Trocafarma.`);
+        return `https://wa.me/${normalized}?text=${message}`;
     };
 
     const handlePriceChange = (e) => {
@@ -130,7 +158,7 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                 status: 'RESERVADO_MATCH', // Special status indicating it was created for a specific match
                 cidade: 'N/A', // Context specific, could fetch from profile but not blocking
                 estado: 'UF',
-                logistica: 'A COMBINAR'
+                logistica: formData.logistics
             };
 
             // Allow fetch of existing profile to get instituicao_id if valid
@@ -202,11 +230,28 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                             <h3 className="font-semibold text-gray-800 border-b pb-2">Próximos Passos:</h3>
                             <div className="flex items-start gap-3">
                                 <Truck className="w-5 h-5 text-brand-deep mt-1" />
-                                <p className="text-sm text-gray-600">Combine a logística de entrega do item.</p>
+                                <p className="text-sm text-gray-600">Logistica informada: <strong>{formData.logistics}</strong>.</p>
                             </div>
                             <div className="flex items-start gap-3">
                                 <User className="w-5 h-5 text-brand-deep mt-1" />
-                                <p className="text-sm text-gray-600">Contato: <strong>{urgency.contato_nome}</strong> ({urgency.contato_email})</p>
+                                <div className="text-sm text-gray-600">
+                                    <p>Contato: <strong>{urgency.contato_nome}</strong> ({urgency.contato_email})</p>
+                                    <p className="mt-1 flex items-center gap-2">
+                                        <Phone className="w-4 h-4 text-brand-deep" />
+                                        <span>{urgency.contato_whatsapp || 'Celular/WhatsApp nao informado'}</span>
+                                    </p>
+                                    {urgency.contato_whatsapp && (
+                                        <a
+                                            href={formatWhatsAppUrl(urgency.contato_whatsapp)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-2 inline-flex items-center gap-2 text-green-700 font-semibold hover:underline"
+                                        >
+                                            <MessageCircle className="w-4 h-4" />
+                                            Abrir WhatsApp
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -264,6 +309,22 @@ const UrgencyResponseModal = ({ urgencyId, onClose, currentUser }) => {
                                         >
                                             Permuta
                                         </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Logistica</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {['A COMBINAR', 'RETIRADA', 'ENTREGA'].map(option => (
+                                            <button
+                                                key={option}
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, logistics: option })}
+                                                className={`p-2 rounded-lg border text-sm font-medium transition ${formData.logistics === option ? 'bg-brand-lavender/20 border-brand-periwinkle text-brand-royal' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                            >
+                                                {option}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 

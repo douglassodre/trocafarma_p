@@ -16,7 +16,7 @@ const LandingPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [showUrgencyWizard, setShowUrgencyWizard] = useState(false);
-    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 20,00');
+    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 24,90');
 
     useEffect(() => {
         if (user) navigate('/dashboard');

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Package, Clock, CheckCircle, XCircle, MessageCircle, ArrowLeft, X, Download, Coins } from 'lucide-react'
+import { Package, CheckCircle, MessageCircle, ArrowLeft, X, Download, Coins } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { generateReceiptPDF } from '../utils/pdfGenerator'
@@ -24,8 +24,7 @@ const MyRequests = () => {
     const fetchRequests = async () => {
         try {
             setLoading(true)
-            // Fetch Transacoes join Anuncios join Instituicoes (Provider)
-            const { data, error } = await supabase
+            const { data: requestedData, error: requestedError } = await supabase
                 .from('transacoes')
                 .select(`
                     *,
@@ -40,11 +39,55 @@ const MyRequests = () => {
                     )
                 `)
                 .eq('solicitante_id', user.id)
+                .is('urgencia_id', null)
                 .order('created_at', { ascending: false })
 
-            if (error) throw error
-            setRequests(data || [])
-            console.log("Reqs", data)
+            if (requestedError) throw requestedError
+
+            const { data: urgencyOffersData, error: urgencyOffersError } = await supabase
+                .from('transacoes')
+                .select(`
+                    *,
+                    anuncios:anuncio_id (
+                        *,
+                        instituicoes (
+                            nome_fantasia
+                        ),
+                        perfis_usuarios (
+                            whatsapp
+                        )
+                    ),
+                    solicitacoes_urgentes!transacoes_urgencia_id_fkey (
+                        id,
+                        item_nome,
+                        quantidade,
+                        contato_instituicao,
+                        contato_nome,
+                        contato_email,
+                        contato_whatsapp,
+                        cidade,
+                        estado,
+                        status
+                    )
+                `)
+                .eq('fornecedor_id', user.id)
+                .not('urgencia_id', 'is', null)
+                .order('created_at', { ascending: false })
+
+            if (urgencyOffersError) throw urgencyOffersError
+
+            const ownRequests = (requestedData || []).map(req => ({ ...req, requestRole: 'SOLICITANTE' }))
+            const urgencyOffers = (urgencyOffersData || []).map(req => ({ ...req, requestRole: 'FORNECEDOR_URGENCIA' }))
+            const seen = new Set()
+            const merged = [...ownRequests, ...urgencyOffers]
+                .filter(req => {
+                    if (seen.has(req.id)) return false
+                    seen.add(req.id)
+                    return true
+                })
+                .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+
+            setRequests(merged)
         } catch (error) {
             console.error('Error fetching requests:', error)
         } finally {
@@ -132,15 +175,58 @@ const MyRequests = () => {
 
     const handleWhatsAppClick = (whatsapp, itemName) => {
         if (!whatsapp) {
-            alert('Número de WhatsApp não disponível para este fornecedor.')
+            alert('Numero de WhatsApp nao disponivel para este contato.')
             return
         }
         const message = encodeURIComponent(`Olá, estou entrando em contato sobre a solicitação do item: ${itemName}`)
-        const url = `https://wa.me/55${whatsapp.replace(/\D/g, '')}?text=${message}`
+        const digits = whatsapp.replace(/\D/g, '')
+        const normalized = digits.startsWith('55') ? digits : `55${digits}`
+        const url = `https://wa.me/${normalized}?text=${message}`
         window.open(url, '_blank')
     }
 
-    const getStatusBadge = (status) => {
+    const isUrgencyOffer = (req) => req?.requestRole === 'FORNECEDOR_URGENCIA'
+
+    const isRequesterFlow = (req) => req?.solicitante_id === user.id && !isUrgencyOffer(req)
+
+    const canContact = (req) => !['PENDENTE', 'SOLICITADO', 'RECUSADO'].includes(req?.status)
+
+    const getItemName = (req) => (
+        isUrgencyOffer(req)
+            ? req.solicitacoes_urgentes?.item_nome || req.anuncios?.descricao_customizada
+            : req.anuncios?.descricao_customizada
+    )
+
+    const getCounterpartLabel = (req) => isUrgencyOffer(req) ? 'Solicitante' : 'Fornecedor'
+
+    const getCounterpartName = (req) => (
+        isUrgencyOffer(req)
+            ? req.solicitacoes_urgentes?.contato_instituicao || 'Instituicao solicitante'
+            : req.anuncios?.instituicoes?.nome_fantasia || 'Instituicao ???'
+    )
+
+    const getCounterpartWhatsapp = (req) => (
+        isUrgencyOffer(req)
+            ? req.solicitacoes_urgentes?.contato_whatsapp
+            : req.anuncios?.perfis_usuarios?.whatsapp
+    )
+
+    const getLogistics = (req) => req.anuncios?.logistica || 'A Combinar'
+
+    const getStatusLabel = (req) => {
+        const status = typeof req === 'string' ? req : req?.status
+        if (status === 'PENDENTE') {
+            return isUrgencyOffer(req)
+                ? 'AGUARDANDO ACEITE DO SOLICITANTE'
+                : 'AGUARDANDO ACEITE DO FORNECEDOR'
+        }
+        if (status === 'EM_ANDAMENTO') return 'ACEITO / EM ANDAMENTO'
+        if (status === 'EM_TRANSITO') return 'EM TRANSITO'
+        return status
+    }
+
+    const getStatusBadge = (req) => {
+        const status = typeof req === 'string' ? req : req?.status
         const styles = {
             'SOLICITADO': 'bg-yellow-100 text-yellow-800',
             'PENDENTE': 'bg-orange-100 text-orange-800',
@@ -150,7 +236,7 @@ const MyRequests = () => {
             'EM_TRANSITO': 'bg-brand-periwinkle/20 text-brand-ink',
             'EM_ANDAMENTO': 'bg-brand-lavender/20 text-brand-royal'
         }
-        return <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100'}`}>{status === 'PENDENTE' ? 'AGUARDANDO SEU ACEITE' : status}</span>
+        return <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100'}`}>{getStatusLabel(req)}</span>
     }
 
     const openDetails = (req) => {
@@ -161,23 +247,6 @@ const MyRequests = () => {
         setSelectedRequest(null)
         setIsAccepting(false)
         setFinancialSummary(null)
-    }
-
-    const prepareAcceptance = (req) => {
-        const unitPrice = Number(req.anuncios?.preco_unitario || 0)
-        const quantity = Number(req.quantidade || 0)
-        const subtotal = unitPrice * quantity
-        const fee = subtotal * 0.10 // 10% Platform Fee
-        const total = subtotal + fee
-
-        setFinancialSummary({
-            unitPrice,
-            quantity,
-            subtotal,
-            fee,
-            total
-        })
-        setIsAccepting(true)
     }
 
     const confirmAcceptance = async () => {
@@ -208,6 +277,7 @@ const MyRequests = () => {
     )
 
     const getReturnStatus = (req) => {
+        if (!isRequesterFlow(req)) return null
         if (req.anuncios?.tipo !== 'EMPRESTIMO' || req.status !== 'CONCLUIDO' || req.data_devolucao_real) return null
 
         const today = new Date()
@@ -247,7 +317,7 @@ const MyRequests = () => {
                                 <div key={req.id} className={`bg-white rounded-xl p-6 shadow-sm border ${returnInfo?.status === 'OVERDUE' ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'} flex flex-col md:flex-row items-start md:items-center justify-between gap-6`}>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
-                                            {getStatusBadge(req.status)}
+                                            {getStatusBadge(req)}
                                             {returnInfo && (
                                                 <span className={`px-2 py-1 rounded-full text-xs font-bold border ${returnInfo.color}`}>
                                                     {returnInfo.label}
@@ -256,23 +326,23 @@ const MyRequests = () => {
                                             <span className="text-xs text-slate-400 font-mono">ID: {req.id.slice(0, 8)}</span>
                                             <span className="text-sm text-slate-500">{new Date(req.created_at).toLocaleDateString()}</span>
                                         </div>
-                                        <h3 className="text-lg font-bold text-slate-900">{req.anuncios?.descricao_customizada}</h3>
+                                        <h3 className="text-lg font-bold text-slate-900">{getItemName(req)}</h3>
                                         <div className="flex items-center gap-2 text-sm text-slate-600 mt-1">
                                             <Package className="h-4 w-4" />
-                                            Fornecedor: <span className="font-semibold">{req.anuncios?.instituicoes?.nome_fantasia || 'Instituição ???'}</span>
+                                            {getCounterpartLabel(req)}: <span className="font-semibold">{getCounterpartName(req)}</span>
                                         </div>
                                         <div className="flex items-center gap-4 mt-3">
                                             <span className="text-xs font-semibold bg-slate-100 px-2 py-1 rounded">
-                                                {req.anuncios?.tipo}
+                                                {isUrgencyOffer(req) ? 'URGENCIA' : req.anuncios?.tipo}
                                             </span>
                                             <span className="text-xs text-slate-500">
-                                                Logística: {req.anuncios?.logistica || 'A Combinar'}
+                                                Logistica: {getLogistics(req)}
                                             </span>
                                         </div>
                                     </div>
 
                                     <div className="flex flex-col gap-2 w-full md:w-auto">
-                                        {(req.status === 'EM_ANDAMENTO' || req.status === 'DEVOLUCAO_PARCIAL' || req.status === 'CONCLUIDO') && (
+                                        {isRequesterFlow(req) && (req.status === 'EM_ANDAMENTO' || req.status === 'DEVOLUCAO_PARCIAL' || req.status === 'CONCLUIDO') && (
                                             <Link to={`/devolver/${req.id}`}>
                                                 <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2">
                                                     <Package className="h-4 w-4" />
@@ -282,11 +352,12 @@ const MyRequests = () => {
                                         )}
                                         <Button
                                             variant="outline"
-                                            className="gap-2 text-green-700 border-green-200 hover:bg-green-50"
-                                            onClick={() => handleWhatsAppClick(req.anuncios?.perfis_usuarios?.whatsapp, req.anuncios?.descricao_customizada)}
+                                            disabled={!canContact(req)}
+                                            className="gap-2 text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            onClick={() => handleWhatsAppClick(getCounterpartWhatsapp(req), getItemName(req))}
                                         >
                                             <MessageCircle className="h-4 w-4" />
-                                            WhatsApp Fornecedor
+                                            {canContact(req) ? `WhatsApp ${getCounterpartLabel(req)}` : 'Aguardando aceite'}
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -316,7 +387,7 @@ const MyRequests = () => {
 
                         <h2 className="text-2xl font-bold text-slate-900 mb-1">Detalhes da Solicitação</h2>
                         <div className="flex items-center gap-2 mb-6">
-                            {getStatusBadge(selectedRequest.status)}
+                            {getStatusBadge(selectedRequest)}
                             <span className="text-sm text-slate-500 font-mono">#{selectedRequest.id.slice(0, 8)}</span>
                         </div>
 
@@ -325,11 +396,11 @@ const MyRequests = () => {
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Item Solicitado</h3>
                                 <div className="space-y-2">
-                                    <p className="text-lg font-bold text-slate-900">{selectedRequest.anuncios?.descricao_customizada}</p>
+                                    <p className="text-lg font-bold text-slate-900">{getItemName(selectedRequest)}</p>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
                                             <span className="text-slate-500 block">Quantidade</span>
-                                            <span className="font-medium">{selectedRequest.anuncios?.quantidade || 'N/A'}</span>
+                                            <span className="font-medium">{selectedRequest.quantidade || selectedRequest.anuncios?.quantidade || 'N/A'}</span>
                                         </div>
                                         <div>
                                             <span className="text-slate-500 block">Lote</span>
@@ -345,7 +416,7 @@ const MyRequests = () => {
                                         </div>
                                         <div>
                                             <span className="text-slate-500 block">Tipo</span>
-                                            <span className="font-medium">{selectedRequest.anuncios?.tipo}</span>
+                                            <span className="font-medium">{isUrgencyOffer(selectedRequest) ? 'URGENCIA' : selectedRequest.anuncios?.tipo}</span>
                                         </div>
                                         <div>
                                             <span className="text-slate-500 block text-xs uppercase tracking-wider">Valor de Referência (Item)</span>
@@ -368,17 +439,19 @@ const MyRequests = () => {
 
                             {/* Provider Info */}
                             <div className="bg-white p-4 rounded-xl border border-slate-200">
-                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Fornecedor</h3>
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">{getCounterpartLabel(selectedRequest)}</h3>
                                 <div className="flex items-start gap-3">
                                     <div className="bg-slate-100 p-2 rounded-full">
                                         <Package className="h-6 w-6 text-slate-600" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-slate-900">{selectedRequest.anuncios?.instituicoes?.nome_fantasia}</p>
+                                        <p className="font-bold text-slate-900">{getCounterpartName(selectedRequest)}</p>
                                         <p className="text-slate-600 text-sm">
-                                            {selectedRequest.anuncios?.cidade} - {selectedRequest.anuncios?.estado}
+                                            {isUrgencyOffer(selectedRequest)
+                                                ? `${selectedRequest.solicitacoes_urgentes?.cidade || '-'} - ${selectedRequest.solicitacoes_urgentes?.estado || '-'}`
+                                                : `${selectedRequest.anuncios?.cidade || '-'} - ${selectedRequest.anuncios?.estado || '-'}`}
                                         </p>
-                                        <p className="text-slate-500 text-xs mt-1">Logística: {selectedRequest.anuncios?.logistica || 'A Combinar'}</p>
+                                        <p className="text-slate-500 text-xs mt-1">Logistica: {getLogistics(selectedRequest)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -433,16 +506,12 @@ const MyRequests = () => {
                             ) : (
                                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
                                     {selectedRequest.status === 'PENDENTE' && (
-                                        <Button
-                                            className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all animate-pulse duration-1000"
-                                            onClick={() => prepareAcceptance(selectedRequest)}
-                                        >
-                                            <CheckCircle className="h-4 w-4" />
-                                            Aceitar Oferta
-                                        </Button>
+                                        <div className="flex-1 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-800">
+                                            {getStatusLabel(selectedRequest)}
+                                        </div>
                                     )}
 
-                                    {selectedRequest.status === 'EM_TRANSITO' && (
+                                    {isRequesterFlow(selectedRequest) && selectedRequest.status === 'EM_TRANSITO' && (
                                         <Button
                                             className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white"
                                             onClick={() => handleConfirmReceipt(selectedRequest)}
@@ -451,7 +520,7 @@ const MyRequests = () => {
                                             Confirmar Recebimento
                                         </Button>
                                     )}
-                                    {(selectedRequest.status === 'EM_ANDAMENTO' || selectedRequest.status === 'DEVOLUCAO_PARCIAL' || selectedRequest.status === 'CONCLUIDO') && (
+                                    {isRequesterFlow(selectedRequest) && (selectedRequest.status === 'EM_ANDAMENTO' || selectedRequest.status === 'DEVOLUCAO_PARCIAL' || selectedRequest.status === 'CONCLUIDO') && (
                                         <Link to={`/devolver/${selectedRequest.id}`} className="flex-1">
                                             <Button className="w-full gap-2 bg-orange-600 hover:bg-orange-700 text-white">
                                                 <Package className="h-4 w-4" />
@@ -470,11 +539,12 @@ const MyRequests = () => {
                                     )}
                                     <Button
                                         variant="outline"
-                                        className="flex-1 gap-2"
-                                        onClick={() => handleWhatsAppClick(selectedRequest.anuncios?.perfis_usuarios?.whatsapp, selectedRequest.anuncios?.descricao_customizada)}
+                                        disabled={!canContact(selectedRequest)}
+                                        className="flex-1 gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={() => handleWhatsAppClick(getCounterpartWhatsapp(selectedRequest), getItemName(selectedRequest))}
                                     >
                                         <MessageCircle className="h-4 w-4" />
-                                        Contatar Fornecedor
+                                        {canContact(selectedRequest) ? `Contatar ${getCounterpartLabel(selectedRequest)}` : 'Aguardando aceite'}
                                     </Button>
                                 </div>
                             )}
