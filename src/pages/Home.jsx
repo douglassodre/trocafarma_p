@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity, Siren, BellRing } from 'lucide-react'
+import { LogOut, PlusCircle, LayoutList, Building2, User, Truck, Package, ArrowRight, TrendingUp, ShieldCheck, Activity, Siren, BellRing, Crown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import UrgencyResponseModal from '../components/UrgencyResponseModal'
 import UrgencyWizard from '../components/UrgencyWizard'
@@ -9,7 +9,7 @@ import UrgencyWizard from '../components/UrgencyWizard'
 import logo from '../assets/logo.png'
 
 const Home = () => {
-    const { user, userProfile, signOut } = useAuth()
+    const { user, userProfile, signOut, refreshProfile } = useAuth()
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
 
@@ -25,6 +25,9 @@ const Home = () => {
     // Urgency Response Modal State
     const [responseModalId, setResponseModalId] = useState(null)
     const [isUrgencyWizardOpen, setIsUrgencyWizardOpen] = useState(false)
+    const hasPremiumAccess = Boolean(
+        userProfile?.is_premium && ['active', 'trialing'].includes(userProfile?.subscription_status)
+    )
 
     // KPI State
     const [kpis, setKpis] = useState({
@@ -42,6 +45,17 @@ const Home = () => {
             fetchInTransitItems()
             fetchKPIs()
             fetchPendingUrgencyOffers()
+
+            if (searchParams.get('subscription') === 'success') {
+                refreshProfile?.(user.id)
+                if (searchParams.get('resume') === 'urgency') {
+                    setIsUrgencyWizardOpen(true)
+                }
+                const nextParams = new URLSearchParams(searchParams)
+                nextParams.delete('subscription')
+                nextParams.delete('resume')
+                setSearchParams(nextParams, { replace: true })
+            }
 
             // Check for help_urgency param
             const helpId = searchParams.get('help_urgency')
@@ -212,6 +226,12 @@ const Home = () => {
                     <div className="flex items-center space-x-2">
                         <img src={logo} alt="Trocafarma" className="h-10 w-10 object-contain" />
                         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Trocafarma</h1>
+                        {hasPremiumAccess && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-700">
+                                <Crown className="h-3.5 w-3.5" />
+                                Premium
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center space-x-6">
                         <button
@@ -228,6 +248,7 @@ const Home = () => {
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-semibold text-gray-900">{userProfile.nome}</p>
                                 <p className="text-xs text-gray-500">{userProfile.instituicoes?.nome_fantasia}</p>
+                                {hasPremiumAccess && <p className="text-xs font-semibold text-amber-700">Premium ativo</p>}
                             </div>
                             <div className="bg-gray-100 p-2 rounded-full">
                                 <User className="h-5 w-5 text-gray-600" />

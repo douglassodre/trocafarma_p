@@ -23,6 +23,25 @@ const getRequiredEnv = (name: string) => {
     return value;
 };
 
+const getCheckoutUrl = (candidate: unknown, fallback: string) => {
+    if (typeof candidate !== 'string' || !candidate.trim()) return fallback;
+
+    try {
+        const url = new URL(candidate);
+        const allowedHosts = [
+            'trocafarma.com',
+            'www.trocafarma.com',
+            'trocafarma.vercel.app',
+            'trocafarma-p-trocafarmas-projects.vercel.app',
+        ];
+        const isAllowedHost = allowedHosts.includes(url.hostname) || url.hostname.endsWith('-trocafarmas-projects.vercel.app');
+        if (url.protocol !== 'https:' || !isAllowedHost) return fallback;
+        return url.toString();
+    } catch {
+        return fallback;
+    }
+};
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -73,9 +92,8 @@ Deno.serve(async (req) => {
         const { userId, email, successUrl, cancelUrl } = body;
         const checkoutUserId = userId || user.id;
 
-        const isProduction = Deno.env.get('ENVIRONMENT') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID');
-        const finalSuccessUrl = isProduction ? envSuccessUrl : (successUrl ?? envSuccessUrl);
-        const finalCancelUrl = isProduction ? envCancelUrl : (cancelUrl ?? envCancelUrl);
+        const finalSuccessUrl = getCheckoutUrl(successUrl, envSuccessUrl);
+        const finalCancelUrl = getCheckoutUrl(cancelUrl, envCancelUrl);
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],

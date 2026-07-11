@@ -17,6 +17,7 @@ import {
 } from '../utils/urgencyStory';
 
 const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
+const URGENCY_SUBSCRIPTION_DRAFT_KEY = 'trocafarma:urgency-subscription-draft';
 
 const formatCpf = (value) => {
     const digits = onlyDigits(value).slice(0, 11);
@@ -62,6 +63,26 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         password: ''
     });
 
+    const getSubscriptionReturnUrl = () => {
+        if (typeof window === 'undefined') return undefined;
+        return `${window.location.origin}/dashboard?subscription=success&resume=urgency`;
+    };
+
+    const saveSubscriptionDraft = () => {
+        if (typeof window === 'undefined') return;
+        const { password, ...safeFormData } = formData;
+        window.localStorage.setItem(URGENCY_SUBSCRIPTION_DRAFT_KEY, JSON.stringify({
+            formData: safeFormData,
+            step,
+            savedAt: Date.now()
+        }));
+    };
+
+    const clearSubscriptionDraft = () => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.removeItem(URGENCY_SUBSCRIPTION_DRAFT_KEY);
+    };
+
     const requestDeviceLocation = () => {
         if (!navigator.geolocation) {
             setLocationError('Geolocalização não disponível. Preencha cidade e UF manualmente.');
@@ -99,6 +120,22 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
     useEffect(() => {
         if (!isOpen) return;
+
+        const savedDraft = window.localStorage.getItem(URGENCY_SUBSCRIPTION_DRAFT_KEY);
+        if (savedDraft) {
+            try {
+                const parsedDraft = JSON.parse(savedDraft);
+                const isRecentDraft = Date.now() - Number(parsedDraft.savedAt || 0) < 1000 * 60 * 60 * 6;
+                if (isRecentDraft && parsedDraft.formData) {
+                    setFormData(prev => ({ ...prev, ...parsedDraft.formData }));
+                    setStep(Math.min(Math.max(Number(parsedDraft.step || 3), 1), authenticatedUser ? 3 : 4));
+                } else {
+                    clearSubscriptionDraft();
+                }
+            } catch {
+                clearSubscriptionDraft();
+            }
+        }
 
         if (authenticatedUser && userProfile) {
             setFormData(prev => ({
@@ -253,6 +290,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     const ensurePublicationAllowed = async () => {
         const publicationAccess = await getPublicationAccess();
         if (!publicationAccess?.allowed) {
+            saveSubscriptionDraft();
             setIsSubscriptionModalOpen(true);
             return false;
         }
@@ -407,6 +445,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                 }]);
 
             if (urgencyError) throw urgencyError;
+            clearSubscriptionDraft();
 
             let statusWarning = '';
             if (isSalvadorLocation(formData) && formData.whatsapp_status_consent) {
@@ -441,6 +480,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
             <SubscriptionRequiredModal
                 isOpen={isSubscriptionModalOpen}
                 onClose={() => setIsSubscriptionModalOpen(false)}
+                returnTo={getSubscriptionReturnUrl()}
             />
 
             <div className={`relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-lg bg-white shadow-2xl animate-fade-in-up transition-all duration-500 ease-in-out sm:max-h-[calc(100dvh-2rem)] ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>

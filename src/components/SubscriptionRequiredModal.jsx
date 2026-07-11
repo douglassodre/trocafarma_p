@@ -3,7 +3,15 @@ import { CheckCircle, CreditCard, Loader2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { formatSubscriptionPrice, getSubscriptionPrice } from '../utils/subscriptionPrice'
 
-const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
+const toCheckoutUrl = (value, fallback) => {
+    try {
+        return new URL(value || fallback, window.location.origin).toString()
+    } catch {
+        return fallback
+    }
+}
+
+const SubscriptionRequiredModal = ({ isOpen, onClose, returnTo }) => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 20,00')
@@ -23,6 +31,10 @@ const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
             if (sessionError) throw sessionError
             if (!session?.access_token) throw new Error('Sua sessao expirou. Entre novamente para ativar a assinatura.')
 
+            const fallbackSuccessUrl = `${window.location.origin}${window.location.pathname}?subscription=success`
+            const successUrl = toCheckoutUrl(returnTo, fallbackSuccessUrl)
+            const cancelUrl = window.location.href
+
             const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`, {
                 method: 'POST',
                 headers: {
@@ -30,7 +42,7 @@ const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
                     Authorization: `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ successUrl, cancelUrl }),
             })
 
             const data = await response.json().catch(() => null)

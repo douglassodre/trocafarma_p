@@ -7,7 +7,7 @@ dotenv.config({ quiet: true });
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookUrl =
     process.env.STRIPE_WEBHOOK_URL ||
-    "https://sfbmelnwdslnyyyzxlzb.functions.supabase.co/stripe-webhook";
+    "https://sfbmelnwdslnyyyzxlzb.supabase.co/functions/v1/stripe-webhook";
 
 const enabledEvents = [
     "checkout.session.completed",

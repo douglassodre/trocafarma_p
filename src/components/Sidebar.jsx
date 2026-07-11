@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, Package, LogOut, Clock, Search, BarChart3, DollarSign } from 'lucide-react'
+import { Home, PlusCircle, Package, LogOut, Clock, Search, BarChart3, DollarSign, Crown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext' // Assuming this hook allows signing out
 import { cn } from '../lib/utils'
 
@@ -9,6 +9,9 @@ const Sidebar = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const { signOut, userProfile } = useAuth()
+    const hasPremiumAccess = Boolean(
+        userProfile?.is_premium && ['active', 'trialing'].includes(userProfile?.subscription_status)
+    )
 
     const handleLogout = async () => {
         try {
@@ -67,6 +70,12 @@ const Sidebar = () => {
                 </nav>
             </div>
             <div className="border-t border-brand-lavender/40 p-4">
+                {hasPremiumAccess && (
+                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-amber-700">
+                        <Crown className="h-4 w-4" />
+                        Premium ativo
+                    </div>
+                )}
                 <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-all hover:bg-red-50"
