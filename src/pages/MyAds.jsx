@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
     ArrowLeft, Plus, Calendar, AlertTriangle,
     CheckCircle, XCircle, Package, Edit2,
-    Trash2, Clock, EyeOff, Users, X, Share2
+    Trash2, Clock, EyeOff, Users, X, Share2, Mail, Phone
 } from 'lucide-react'
 
 const MyAds = () => {
     const { user } = useAuth()
     const navigate = useNavigate()
-    const [activeTab, setActiveTab] = useState('ofertas') // 'ofertas', 'urgencias'
+    const location = useLocation()
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab === 'urgencias' ? 'urgencias' : 'ofertas') // 'ofertas', 'urgencias'
     const [ads, setAds] = useState([])
     const [urgencies, setUrgencies] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedAd, setSelectedAd] = useState(null)
+    const [selectedUrgency, setSelectedUrgency] = useState(null)
     const [returnHistory, setReturnHistory] = useState({}) // Map transactionId -> list of returns
 
     const fetchReturnHistory = async (transactionId) => {
@@ -87,7 +89,20 @@ const MyAds = () => {
         try {
             const { data, error } = await supabase
                 .from('solicitacoes_urgentes')
-                .select('*')
+                .select(`
+                    *,
+                    transacoes!transacoes_urgencia_id_fkey (
+                        id,
+                        status,
+                        created_at,
+                        quantidade,
+                        tipo,
+                        data_devolucao_prevista,
+                        fornecedor_id,
+                        fornecedor:fornecedor_id (nome, email, whatsapp),
+                        anuncio:anuncio_id (preco_unitario, lote, data_vencimento, logistica)
+                    )
+                `)
                 .eq('usuario_id', user.id)
                 .order('created_at', { ascending: false })
             if (error) throw error
@@ -107,6 +122,14 @@ const MyAds = () => {
             loadData()
         }
     }, [user])
+
+    useEffect(() => {
+        const urgencyId = location.state?.highlightUrgencyId
+        if (activeTab !== 'urgencias' || loading || !urgencyId) return
+
+        const element = document.getElementById(`urgency-${urgencyId}`)
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, [activeTab, loading, location.state?.highlightUrgencyId])
 
     const handleWhatsAppShare = (ad, e) => {
         e.stopPropagation()
@@ -137,6 +160,40 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
         } catch (error) {
             console.error('Error finishing urgency:', error)
             alert(`Erro ao finalizar urgência. Detalhes: ${error.message || error.details || JSON.stringify(error)}`)
+        }
+    }
+
+    const handleUrgencyResponse = async (transactionId, accepted) => {
+        try {
+            const nextStatus = accepted ? 'EM_ANDAMENTO' : 'RECUSADO'
+            const { error } = await supabase
+                .from('transacoes')
+                .update({ status: nextStatus })
+                .eq('id', transactionId)
+            if (error) throw error
+
+            if (accepted) {
+                await supabase
+                    .from('solicitacoes_urgentes')
+                    .update({ status: 'ATENDIDA' })
+                    .eq('id', selectedUrgency.id)
+
+                await supabase
+                    .from('transacoes')
+                    .update({ status: 'RECUSADO' })
+                    .eq('urgencia_id', selectedUrgency.id)
+                    .eq('status', 'PENDENTE')
+                    .neq('id', transactionId)
+            }
+
+            await fetchUrgencies()
+            setSelectedUrgency(null)
+            alert(accepted
+                ? 'Atendimento aceito. Os contatos do fornecedor já estão disponíveis nesta urgência.'
+                : 'Oferta recusada.')
+        } catch (error) {
+            console.error('Error handling urgency response:', error)
+            alert('Não foi possível atualizar esta oferta.')
         }
     }
 
@@ -491,8 +548,18 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {urgencies.map((urgency) => (
                                 <div key={urgency.id}
-                                    className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${urgency.status !== 'ATIVA' ? 'opacity-75 grayscale-[0.5]' : 'border-t-4 border-t-red-500'}`}
+                                    id={`urgency-${urgency.id}`}
+                                    className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col relative ${urgency.status !== 'ATIVA' ? 'opacity-75 grayscale-[0.5]' : 'border-t-4 border-t-red-500'} ${location.state?.highlightUrgencyId === urgency.id ? 'ring-4 ring-red-300 ring-offset-2' : ''}`}
                                 >
+                                    {(urgency.transacoes?.filter(tx => tx.status !== 'RECUSADO').length || 0) > 0 && (
+                                        <button
+                                            onClick={() => setSelectedUrgency(urgency)}
+                                            className="absolute top-14 right-4 z-10 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse"
+                                        >
+                                            <Users className="h-3 w-3" />
+                                            {urgency.transacoes.filter(tx => tx.status !== 'RECUSADO').length} oferta(s)
+                                        </button>
+                                    )}
                                     <div className="p-6 flex-1">
                                         <div className="flex justify-between items-start mb-4">
                                             <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-full flex items-center gap-1 bg-red-100 text-red-700">
@@ -525,6 +592,13 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                                     </div>
                                     <div className="bg-gray-50 p-4 border-t border-gray-100 flex items-center space-x-3">
                                         <button
+                                            onClick={() => setSelectedUrgency(urgency)}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition"
+                                        >
+                                            <Users className="h-4 w-4" />
+                                            <span>Ver ofertas ({urgency.transacoes?.length || 0})</span>
+                                        </button>
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation()
                                                 handleCancelUrgency(urgency.id)
@@ -542,6 +616,58 @@ Instituição: ${ad.instituicoes?.nome_fantasia || 'Instituição Parceira'}
                     )
                 )}
             </div>
+
+            {/* Urgency Response Management Modal */}
+            {selectedUrgency && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-start sticky top-0 bg-white z-10">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Ofertas para atender a urgência</h2>
+                                <p className="text-sm text-gray-500 mt-1">{selectedUrgency.item_nome}</p>
+                            </div>
+                            <button onClick={() => setSelectedUrgency(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                                <X className="h-5 w-5 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {!selectedUrgency.transacoes?.length ? (
+                                <p className="text-center text-gray-500 py-10">Ainda não há fornecedores interessados.</p>
+                            ) : selectedUrgency.transacoes.map(tx => (
+                                <div key={tx.id} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex justify-between gap-3">
+                                        <div>
+                                            <span className={`text-xs font-bold px-2 py-1 rounded ${tx.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' : tx.status === 'EM_ANDAMENTO' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                {tx.status === 'PENDENTE' ? 'AGUARDANDO SUA DECISÃO' : tx.status}
+                                            </span>
+                                            <h3 className="font-bold text-gray-900 mt-3">{tx.fornecedor?.nome || 'Fornecedor cadastrado'}</h3>
+                                            <p className="text-sm text-gray-600">{tx.tipo} · {tx.quantidade} unidade(s)</p>
+                                        </div>
+                                        <div className="text-right text-sm text-gray-600">
+                                            <p>Lote: <strong>{tx.anuncio?.lote || 'N/I'}</strong></p>
+                                            <p>Validade: <strong>{tx.anuncio?.data_vencimento ? new Date(`${tx.anuncio.data_vencimento}T12:00:00`).toLocaleDateString() : 'N/I'}</strong></p>
+                                            <p>Custo ref.: <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.anuncio?.preco_unitario || 0)}</strong></p>
+                                        </div>
+                                    </div>
+                                    {tx.status === 'PENDENTE' && (
+                                        <div className="flex gap-2 pt-2">
+                                            <button onClick={() => handleUrgencyResponse(tx.id, true)} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700">Aceitar oferta</button>
+                                            <button onClick={() => handleUrgencyResponse(tx.id, false)} className="flex-1 border border-red-200 text-red-600 py-2 rounded-lg font-semibold hover:bg-red-50">Recusar</button>
+                                        </div>
+                                    )}
+                                    {tx.status === 'EM_ANDAMENTO' && (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-900 space-y-1">
+                                            <p className="font-semibold">Contato liberado para continuidade:</p>
+                                            <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {tx.fornecedor?.email || 'E-mail não informado'}</p>
+                                            <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> {tx.fornecedor?.whatsapp || 'WhatsApp não informado'}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Interest Management Modal */}
             {selectedAd && (

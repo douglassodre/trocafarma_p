@@ -10,16 +10,20 @@ import { useEffect, useState } from 'react';
 import UrgencyWizard from '../components/UrgencyWizard';
 import ActiveUrgencies from '../components/ActiveUrgencies';
 import logo from '../assets/logo.png';
+import { formatSubscriptionPrice, getSubscriptionPrice } from '../utils/subscriptionPrice';
 
 const LandingPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [showUrgencyWizard, setShowUrgencyWizard] = useState(false);
+    const [subscriptionPrice, setSubscriptionPrice] = useState('R$ 20,00');
 
     useEffect(() => {
-        if (user) {
-            navigate('/dashboard');
-        }
+        if (user) navigate('/dashboard');
+
+        getSubscriptionPrice().then((price) => {
+            setSubscriptionPrice(formatSubscriptionPrice(price));
+        });
     }, [user, navigate]);
     return (
         <div className="min-h-screen flex flex-col font-sans text-brand-ink bg-brand-mist overflow-x-hidden">
@@ -218,14 +222,14 @@ const LandingPage = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                         <Link to="/signup" className="w-full sm:w-auto px-8 py-4 bg-white text-brand-deep font-bold rounded-lg text-lg hover:bg-brand-mist transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
-                            Ativar Agora (R$ 0,00/mês)
+                            Ativar Agora ({subscriptionPrice}/mês)
                         </Link>
                         <Link to="/contact" className="w-full sm:w-auto px-8 py-4 bg-transparent border-2 border-brand-lavender text-white font-bold rounded-lg text-lg hover:bg-white/10 transition-all">
                             Falar com Consultor
                         </Link>
                     </div>
                     <p className="mt-8 text-sm text-brand-lavender">
-                        *Plano Gratuito disponível por tempo limitado para hospitais credenciados.
+                        *Uma publicação gratuita por mês. Assinatura com 10 dias grátis.
                     </p>
                 </div>
             </section>

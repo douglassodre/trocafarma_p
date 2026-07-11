@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Search, Clock, ArrowRight, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { apiService } from '../services/apiService';
 import Autocomplete from './Autocomplete';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import SubscriptionRequiredModal from './SubscriptionRequiredModal';
+import { getPublicationAccess, isSubscriptionRequiredError } from '../utils/subscriptionAccess';
+import {
+    STATUS_PHONE_DISPLAY,
+    STATUS_PHONE_LINK,
+    buildUrgencyCaption,
+    canvasToJpegBlob,
+    drawUrgencyStory,
+    isSalvadorLocation
+} from '../utils/urgencyStory';
+
+const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
+
+const formatCpf = (value) => {
+    const digits = onlyDigits(value).slice(0, 11);
+    return digits
+        .replace(/^(\d{3})(\d)/, '$1.$2')
+        .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1-$2');
+};
 
 const UrgencyWizard = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
+    const { user: authenticatedUser, userProfile } = useAuth();
+    const storyCanvasRef = useRef(null);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [loadingCpf, setLoadingCpf] = useState(false);
     const [loadingCnpj, setLoadingCnpj] = useState(false);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState('');
+    const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
     // Smart Identify Status
     const [identificationStatus, setIdentificationStatus] = useState('listening'); // listening, checking, known, new
@@ -22,6 +48,9 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         quantidade: '',
         urgencia_label: '',
         data_expiracao: null,
+        cidade: '',
+        estado: '',
+        whatsapp_status_consent: false,
 
         // Step 4 Data
         cpf: '',
@@ -33,41 +62,122 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         password: ''
     });
 
+    const requestDeviceLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationError('Geolocalização não disponível. Preencha cidade e UF manualmente.');
+            return;
+        }
+
+        setLocationLoading(true);
+        setLocationError('');
+        navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`);
+                if (!response.ok) throw new Error('Falha ao consultar localização.');
+                const data = await response.json();
+                const city = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || '';
+                const isoState = data.address?.['ISO3166-2-lvl4'] || data.address?.['ISO3166-2-lvl3'] || '';
+                const state = isoState.includes('-') ? isoState.split('-').pop() : (data.address?.state || '');
+
+                setFormData(prev => ({
+                    ...prev,
+                    cidade: city,
+                    estado: state.toUpperCase().slice(0, 2),
+                    whatsapp_status_consent: false
+                }));
+            } catch (error) {
+                console.error('Erro ao identificar localização:', error);
+                setLocationError('Não foi possível identificar cidade e UF. Preencha manualmente.');
+            } finally {
+                setLocationLoading(false);
+            }
+        }, () => {
+            setLocationLoading(false);
+            setLocationError('Permissão de localização negada. Preencha cidade e UF manualmente.');
+        });
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (authenticatedUser && userProfile) {
+            setFormData(prev => ({
+                ...prev,
+                contato_nome: userProfile.nome || '',
+                contato_email: userProfile.email || authenticatedUser.email || '',
+                contato_instituicao: userProfile.instituicoes?.nome_fantasia || ''
+            }));
+        }
+
+        if (!formData.cidade) requestDeviceLocation();
+    }, [isOpen]);
+
+    const handleCpfChange = (event) => {
+        const maskedCpf = formatCpf(event.target.value);
+        setIdentificationStatus('listening');
+        setFormData(prev => ({
+            ...prev,
+            cpf: maskedCpf,
+            contato_nome: '',
+            contato_email: '',
+            contato_instituicao: '',
+            cnpj: '',
+            whatsapp: '',
+            password: ''
+        }));
+    };
+
+    useEffect(() => {
+        if (!isOpen || !storyCanvasRef.current) return;
+        drawUrgencyStory(storyCanvasRef.current, formData).catch((error) => {
+            console.error('Erro ao montar preview da ruptura:', error);
+        });
+    }, [isOpen, step, formData]);
+
     // Check CPF with Smart Identify logic
     const checkCpfSmart = async () => {
-        if (!formData.cpf || formData.cpf.length < 11) return;
+        const normalizedCpf = onlyDigits(formData.cpf);
+        if (normalizedCpf.length !== 11) {
+            setIdentificationStatus('listening');
+            return;
+        }
+
         setIdentificationStatus('checking');
 
         try {
-            // Check Internal DB (Smart Identify)
-            const { data, error } = await supabase.rpc('check_user_by_cpf', { input_cpf: formData.cpf });
+            const { data, error } = await supabase.rpc('check_user_by_cpf', {
+                input_cpf: normalizedCpf
+            });
 
             if (error) throw error;
 
-            const result = data && data[0]; // RPC returns a table/array
+            const result = data?.[0];
 
-            if (result && result.found) {
-                setIdentificationStatus('known');
+            if (result?.found) {
                 setFormData(prev => ({
                     ...prev,
-                    contato_email: result.user_email,
-                    contato_nome: result.user_name,
-                    contato_instituicao: result.institution_name
+                    contato_email: result.user_email || '',
+                    contato_nome: result.user_name || '',
+                    contato_instituicao: result.institution_name || '',
+                    cnpj: '',
+                    whatsapp: ''
                 }));
-            } else {
-                // Double check with external API if not internal to fill name
-                const cpfData = await apiService.fetchCPFData(formData.cpf);
-                const name = cpfData.nome || cpfData.n || (cpfData.data && cpfData.data.nome) || '';
-                if (name) {
-                    setFormData(prev => ({ ...prev, contato_nome: name }));
-                }
-                setIdentificationStatus('new');
+                setIdentificationStatus('known');
+                return;
             }
 
+            const cpfData = await apiService.fetchCPFData(normalizedCpf);
+            const name = cpfData?.nome || cpfData?.n || cpfData?.data?.nome || '';
+            setFormData(prev => ({
+                ...prev,
+                contato_nome: name,
+                contato_email: '',
+                contato_instituicao: ''
+            }));
+            setIdentificationStatus('new');
         } catch (err) {
             console.error("Smart Identify Error:", err);
-            // Fallback to new user
-            setIdentificationStatus('new');
+            setIdentificationStatus('error');
         }
     };
 
@@ -113,27 +223,54 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
     const handleNext = () => {
         if (step === 1 && !formData.item_nome) return alert("Selecione um item.");
-        if (step === 2 && (!formData.quantidade || !formData.urgencia_label)) return alert("Preencha todos os campos.");
+        if (step === 2 && (!formData.quantidade || !formData.urgencia_label || !formData.cidade || !formData.estado)) return alert("Preencha quantidade, prazo, cidade e UF.");
 
-        // Step 4 Validation
-        if (step === 4) {
-            if (identificationStatus === 'listening') return alert("Informe o CPF.");
+        if (step === 3 && authenticatedUser) {
+            if (isSalvadorLocation(formData) && !formData.whatsapp_status_consent) {
+                return alert("Confirme a autorização para publicar a ruptura no Status do WhatsApp.");
+            }
+            handleFinalSubmit();
+            return;
+        }
+
+        // Step 4 Validation for visitors
+        if (step === 4 && !authenticatedUser) {
+            if (identificationStatus === 'listening') return alert("Informe um CPF válido.");
+            if (identificationStatus === 'checking') return alert("Aguarde a consulta do CPF.");
+            if (identificationStatus === 'error') return alert("Não foi possível consultar o CPF. Tente novamente.");
+            if (isSalvadorLocation(formData) && !formData.whatsapp_status_consent) return alert("Confirme a autorização para publicar a ruptura no Status do WhatsApp.");
             if (!formData.password) return alert("Informe a senha.");
             if (identificationStatus === 'new') {
                 if (!formData.cnpj || !formData.whatsapp || !formData.contato_email) return alert("Preencha todos os campos.");
             }
         }
 
-        if (step < 4) {
-            setStep(step + 1);
-        } else {
-            handleFinalSubmit();
+        const finalStep = authenticatedUser ? 3 : 4;
+        if (step < finalStep) setStep(step + 1);
+        else handleFinalSubmit();
+    };
+
+    const ensurePublicationAllowed = async () => {
+        const publicationAccess = await getPublicationAccess();
+        if (!publicationAccess?.allowed) {
+            setIsSubscriptionModalOpen(true);
+            return false;
         }
+        return true;
     };
 
     const handleFinalSubmit = async () => {
         setLoading(true);
         try {
+            if (authenticatedUser) {
+                if (!await ensurePublicationAllowed()) {
+                    setLoading(false);
+                    return;
+                }
+                await finalizeUrgencyCreation(authenticatedUser);
+                return;
+            }
+
             let authUser = null;
 
             if (identificationStatus === 'known') {
@@ -169,6 +306,10 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
             }
 
             if (!authUser) throw new Error("Falha de autenticação.");
+            if (!await ensurePublicationAllowed()) {
+                setLoading(false);
+                return;
+            }
 
             await finalizeUrgencyCreation(authUser);
 
@@ -179,9 +320,28 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
         }
     };
 
+    const publishUrgencyToStatus = async (user) => {
+        const canvas = storyCanvasRef.current || document.createElement('canvas');
+        await drawUrgencyStory(canvas, formData);
+        const storyBlob = await canvasToJpegBlob(canvas);
+        const filePath = `${user.id}/ruptura_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('anuncios-fotos')
+            .upload(filePath, storyBlob, { contentType: 'image/jpeg', upsert: false });
+        if (uploadError) throw uploadError;
+
+        const { data, error } = await supabase.functions.invoke('notify-status-bot', {
+            body: { filePath, caption: buildUrgencyCaption(formData) }
+        });
+        if (error || data?.ok === false) throw new Error(data?.error || error?.message || 'Falha ao publicar no Status.');
+        return true;
+    };
+
     const finalizeUrgencyCreation = async (user) => {
         try {
-            const city = 'Salvador';
+            const city = formData.cidade.trim();
+            const state = formData.estado.trim().toUpperCase();
             let institutionId = null;
 
             // Only create institution/profile if NEW
@@ -201,6 +361,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             cnpj: formData.cnpj,
                             nome_fantasia: formData.contato_instituicao,
                             cidade: city,
+                            estado: state,
                             status: 'PENDENTE'
                         }])
                         .select()
@@ -236,6 +397,8 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                     nivel_urgencia_label: formData.urgencia_label,
                     data_expiracao: expirationDate.toISOString(),
                     cidade: city,
+                    estado: state,
+                    whatsapp_status_consent: formData.whatsapp_status_consent,
                     contato_nome: formData.contato_nome,
                     contato_email: formData.contato_email,
                     contato_instituicao: formData.contato_instituicao,
@@ -245,13 +408,27 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
             if (urgencyError) throw urgencyError;
 
-            alert("Solicitação de Urgência Criada com Sucesso!");
+            let statusWarning = '';
+            if (isSalvadorLocation(formData) && formData.whatsapp_status_consent) {
+                try {
+                    await publishUrgencyToStatus(user);
+                } catch (statusError) {
+                    console.error('Erro ao publicar ruptura no Status:', statusError);
+                    statusWarning = '\n\nA solicitação foi criada, mas não foi possível publicá-la no Status do WhatsApp.';
+                }
+            }
+
+            alert(`Solicitação de Urgência Criada com Sucesso!${statusWarning}`);
             onClose();
             navigate('/dashboard');
 
         } catch (err) {
             console.error(err);
-            alert("Erro final: " + err.message);
+            if (isSubscriptionRequiredError(err)) {
+                setIsSubscriptionModalOpen(true);
+            } else {
+                alert("Erro final: " + err.message);
+            }
             setLoading(false);
         }
     };
@@ -260,9 +437,13 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-2 backdrop-blur-sm sm:items-center sm:p-4">
+            <SubscriptionRequiredModal
+                isOpen={isSubscriptionModalOpen}
+                onClose={() => setIsSubscriptionModalOpen(false)}
+            />
 
-            <div className={`bg-white rounded-lg w-full max-w-lg shadow-2xl overflow-hidden relative animate-fade-in-up transition-all duration-500 ease-in-out ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
+            <div className={`relative max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-lg bg-white shadow-2xl animate-fade-in-up transition-all duration-500 ease-in-out sm:max-h-[calc(100dvh-2rem)] ${step === 4 ? 'max-w-xl' : 'max-w-lg'}`}>
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
@@ -274,7 +455,7 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                 <div className="h-2 bg-gray-100 w-full">
                     <div
                         className="h-full bg-brand-deep transition-all duration-300"
-                        style={{ width: `${(step / 4) * 100}%` }}
+                        style={{ width: `${(step / (authenticatedUser ? 3 : 4)) * 100}%` }}
                     ></div>
                 </div>
 
@@ -327,6 +508,33 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                     ))}
                                 </div>
                             </div>
+
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                    <div className="sm:col-span-2">
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">Cidade da ruptura</label>
+                                        <input type="text" value={formData.cidade}
+                                            onChange={(e) => setFormData({ ...formData, cidade: e.target.value, whatsapp_status_consent: false })}
+                                            placeholder="Ex: Salvador"
+                                            className="w-full rounded-lg border border-gray-200 p-3 outline-none focus:border-brand-deep" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700">UF</label>
+                                        <input type="text" value={formData.estado}
+                                            onChange={(e) => setFormData({ ...formData, estado: e.target.value.toUpperCase().slice(0, 2), whatsapp_status_consent: false })}
+                                            placeholder="BA" maxLength={2}
+                                            className="w-full rounded-lg border border-gray-200 p-3 uppercase outline-none focus:border-brand-deep" />
+                                    </div>
+                                </div>
+
+                                <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                                    <span className={locationError ? 'text-amber-700' : 'text-gray-500'}>
+                                        {locationLoading ? 'Identificando sua localização...' : locationError || 'Cidade e UF preenchidas pela localização do dispositivo.'}
+                                    </span>
+                                    <button type="button" onClick={requestDeviceLocation} disabled={locationLoading}
+                                        className="font-semibold text-brand-deep hover:underline disabled:opacity-50">
+                                        Usar localização atual
+                                    </button>
+                                </div>
                         </div>
                     )}
 
@@ -341,18 +549,39 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             <div className="bg-brand-lavender/10 p-6 rounded-lg space-y-4 text-left">
                                 <div className="flex items-center text-gray-700">
                                     <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
-                                    <span>Sua solicitação será enviada para <strong>42 instituições</strong> em Salvador.</span>
+                                    <span>Sua solicitação será enviada para instituições da região de <strong>{formData.cidade}</strong>.</span>
                                 </div>
                                 <div className="flex items-center text-gray-700">
                                     <CheckCircle className="w-5 h-5 text-brand-deep mr-3" />
-                                    <span>Taxa de Gestão de Mútuo: <strong>1%</strong> (apenas se houver sucesso).</span>
+                                    <span><strong>Sem taxa de sucesso:</strong> publicações adicionais são liberadas pela assinatura.</span>
                                 </div>
                             </div>
+
+                            {authenticatedUser && (
+                                <div className="space-y-3 border-t border-gray-200 pt-5 text-left">
+                                    <h3 className="font-semibold text-gray-900">Prévia do Status</h3>
+                                    <div className="mx-auto w-full max-w-[230px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+                                        <canvas ref={storyCanvasRef} width={1080} height={1920} className="block aspect-[9/16] w-full" />
+                                    </div>
+                                    {isSalvadorLocation(formData) ? (
+                                        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                                            <input type="checkbox" checked={formData.whatsapp_status_consent}
+                                                onChange={(e) => setFormData({ ...formData, whatsapp_status_consent: e.target.checked })}
+                                                className="mt-1 h-4 w-4" />
+                                            <span>Concordo que esta ruptura seja publicada no Status do WhatsApp do TrocaFarma Salvador, número <a href={STATUS_PHONE_LINK} target="_blank" rel="noreferrer" className="font-bold underline">{STATUS_PHONE_DISPLAY}</a>.</span>
+                                        </label>
+                                    ) : (
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                            O canal {STATUS_PHONE_DISPLAY} atende exclusivamente Salvador/BA. A ruptura será registrada no site sem envio para esse Status.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Step 4: Smart Identify Flow */}
-                    {step === 4 && (
+                    {step === 4 && !authenticatedUser && (
                         <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2 transition-all">
                             <h2 className="text-2xl font-bold text-gray-900">Finalizar</h2>
                             <p className="text-gray-500 text-sm">Identificação do solicitante.</p>
@@ -360,12 +589,15 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                             {/* CPF First - Smart Input */}
                             <div className="relative">
                                 <input
-                                    type="text" placeholder="CPF (Apenas números)"
+                                    type="text"
+                                    placeholder="CPF"
                                     className={`w-full p-4 border rounded-lg outline-none text-lg transition-all ${identificationStatus === 'known' ? 'border-brand-deep bg-brand-lavender/20 ring-1 ring-brand-periwinkle' : 'border-gray-300 focus:border-brand-deep'
                                         }`}
                                     value={formData.cpf}
-                                    onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                                    onChange={handleCpfChange}
                                     onBlur={checkCpfSmart}
+                                    inputMode="numeric"
+                                    autoComplete="username"
                                     maxLength={14}
                                 />
                                 {identificationStatus === 'checking' && (
@@ -380,18 +612,31 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 )}
                             </div>
 
-                            {formData.contato_nome && (
-                                <div className="animate-fade-in text-sm text-gray-600 font-medium px-1">
-                                    Olá, {formData.contato_nome}
+                            {identificationStatus === 'error' && (
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                    Não foi possível consultar o CPF. Verifique sua conexão e tente novamente.
                                 </div>
                             )}
 
                             {/* Known User Flow */}
                             {identificationStatus === 'known' && (
                                 <div className="space-y-4 animate-fade-in-up">
-                                    <div className="bg-brand-lavender/20 p-4 rounded-lg border border-brand-periwinkle/20 px-4">
-                                        <p className="text-sm text-brand-ink font-semibold mb-1">Instituição Vinculada:</p>
-                                        <p className="text-gray-800">{formData.contato_instituicao}</p>
+                                    <div className="rounded-lg border border-brand-periwinkle/30 bg-brand-lavender/10 p-4">
+                                        <p className="mb-3 font-semibold text-brand-ink">Cadastro encontrado</p>
+                                        <dl className="space-y-3 text-sm">
+                                            <div>
+                                                <dt className="text-gray-500">Nome</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_nome}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">E-mail</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_email}</dd>
+                                            </div>
+                                            <div>
+                                                <dt className="text-gray-500">Instituição vinculada</dt>
+                                                <dd className="font-medium text-gray-900">{formData.contato_instituicao}</dd>
+                                            </div>
+                                        </dl>
                                     </div>
 
                                     <input
@@ -455,6 +700,25 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
                                 </div>
                             )}
 
+                            <div className="mt-5 space-y-3 border-t border-gray-200 pt-5">
+                                <h3 className="font-semibold text-gray-900">Prévia do Status</h3>
+                                <div className="mx-auto w-full max-w-[230px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+                                    <canvas ref={storyCanvasRef} width={1080} height={1920} className="block aspect-[9/16] w-full" />
+                                </div>
+                                {isSalvadorLocation(formData) ? (
+                                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                                        <input type="checkbox" checked={formData.whatsapp_status_consent}
+                                            onChange={(e) => setFormData({ ...formData, whatsapp_status_consent: e.target.checked })}
+                                            className="mt-1 h-4 w-4" />
+                                        <span>Concordo que esta ruptura seja publicada automaticamente no Status do WhatsApp do TrocaFarma Salvador, número <a href={STATUS_PHONE_LINK} target="_blank" rel="noreferrer" className="font-bold underline">{STATUS_PHONE_DISPLAY}</a>.</span>
+                                    </label>
+                                ) : (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                        O canal {STATUS_PHONE_DISPLAY} atende exclusivamente Salvador/BA. Esta ruptura será registrada no site, mas não será enviada a esse Status.
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                     )}
 
@@ -471,12 +735,12 @@ const UrgencyWizard = ({ isOpen, onClose }) => {
 
                         <button
                             onClick={handleNext}
-                            disabled={loading}
+                            disabled={loading || (!authenticatedUser && (identificationStatus === 'checking' || identificationStatus === 'error'))}
                             className={`px-8 py-3 rounded-lg font-bold shadow-lg transform active:scale-95 transition-all flex items-center 
                                 ${step === 4 && identificationStatus !== 'listening' ? 'bg-brand-deep hover:bg-brand-royal text-white' : 'bg-brand-ink hover:bg-brand-deep text-white'}
                             `}
                         >
-                            {loading ? 'Processando...' : step === 4 ? (identificationStatus === 'known' ? 'Entrar e Publicar' : 'Cadastrar e Publicar') : 'Continuar'}
+                            {loading ? 'Processando...' : authenticatedUser && step === 3 ? 'Publicar ruptura' : step === 4 ? (identificationStatus === 'known' ? 'Entrar e Publicar' : 'Cadastrar e Publicar') : 'Continuar'}
                             {!loading && <ArrowRight className="ml-2 w-4 h-4" />}
                         </button>
                     </div>

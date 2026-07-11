@@ -72,15 +72,31 @@ export const AuthProvider = ({ children }) => {
 
         getSession()
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setUser(session?.user ?? null)
-            if (session?.user) {
-                await fetchProfile(session.user.id)
-            } else {
-                setUserProfile(null)
-                setProfileError(null)
-            }
-            setLoading(false)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            // Supabase can deadlock when another async client call is awaited
+            // directly inside onAuthStateChange. Defer profile loading until
+            // the auth callback has released its internal lock.
+            setTimeout(() => {
+                const syncSession = async () => {
+                    try {
+                        setUser(session?.user ?? null)
+
+                        if (session?.user) {
+                            await fetchProfile(session.user.id)
+                        } else {
+                            setUserProfile(null)
+                            setProfileError(null)
+                        }
+                    } catch (err) {
+                        console.error('Unexpected error syncing auth state:', err)
+                        setProfileError(err)
+                    } finally {
+                        setLoading(false)
+                    }
+                }
+
+                void syncSession()
+            }, 0)
         })
 
         return () => subscription.unsubscribe()
