@@ -71,7 +71,8 @@ Deno.serve(async (req) => {
         const finalCancelUrl = isProduction ? envCancelUrl : (cancelUrl ?? envCancelUrl);
 
         const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['boleto', 'card'],
+            payment_method_types: ['card'],
+            payment_method_collection: 'always',
             line_items: [
                 {
                     price: priceId,
