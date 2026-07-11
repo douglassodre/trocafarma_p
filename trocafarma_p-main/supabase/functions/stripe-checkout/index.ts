@@ -65,13 +65,15 @@ Deno.serve(async (req) => {
         }
 
         const { userId, email, successUrl, cancelUrl } = body;
+        const checkoutUserId = userId || user.id;
 
         const isProduction = Deno.env.get('ENVIRONMENT') === 'production' || Deno.env.get('DENO_DEPLOYMENT_ID');
         const finalSuccessUrl = isProduction ? envSuccessUrl : (successUrl ?? envSuccessUrl);
         const finalCancelUrl = isProduction ? envCancelUrl : (cancelUrl ?? envCancelUrl);
 
         const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['boleto', 'card'],
+            payment_method_types: ['card'],
+            payment_method_collection: 'always',
             line_items: [
                 {
                     price: priceId,
@@ -82,12 +84,12 @@ Deno.serve(async (req) => {
             subscription_data: {
                 trial_period_days: 10,
                 metadata: {
-                    supabase_user_id: userId || user?.id,
+                    supabase_user_id: checkoutUserId,
                 },
             },
             success_url: finalSuccessUrl,
             cancel_url: finalCancelUrl,
-            client_reference_id: userId || user?.id,
+            client_reference_id: checkoutUserId,
             customer_email: email || user?.email,
         });
 
