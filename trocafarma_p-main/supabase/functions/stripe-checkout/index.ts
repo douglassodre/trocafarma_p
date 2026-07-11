@@ -95,7 +95,19 @@ Deno.serve(async (req) => {
 
         return jsonResponse({ sessionId: session.id, url: session.url })
     } catch (error) {
-        console.error("Critical Error in stripe-checkout:", error.message);
-        return jsonResponse({ error: error.message }, 400)
+        console.error("Critical Error in stripe-checkout:", {
+            message: error.message,
+            type: error.type,
+            code: error.code,
+            param: error.param,
+            statusCode: error.statusCode,
+            requestId: error.requestId,
+        });
+        return jsonResponse({
+            error: error.message || 'Nao foi possivel iniciar o checkout.',
+            type: error.type,
+            code: error.code,
+            param: error.param,
+        }, error.statusCode || 400)
     }
 })

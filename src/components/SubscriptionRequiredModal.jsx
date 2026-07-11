@@ -19,10 +19,24 @@ const SubscriptionRequiredModal = ({ isOpen, onClose }) => {
         setLoading(true)
         setError('')
         try {
-            const { data, error: checkoutError } = await supabase.functions.invoke('stripe-checkout', {
-                body: {}
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            if (sessionError) throw sessionError
+            if (!session?.access_token) throw new Error('Sua sessao expirou. Entre novamente para ativar a assinatura.')
+
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`, {
+                method: 'POST',
+                headers: {
+                    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
             })
-            if (checkoutError) throw checkoutError
+
+            const data = await response.json().catch(() => null)
+            if (!response.ok) {
+                throw new Error(data?.error || data?.message || `Falha ao iniciar assinatura (${response.status}).`)
+            }
             if (!data?.url) throw new Error(data?.error || 'Não foi possível iniciar a assinatura.')
             window.location.assign(data.url)
         } catch (checkoutError) {
