@@ -1,7 +1,12 @@
 export function getThermalStorageError(item, label = 'Item') {
     if (!item?.termolabil) return null
 
-    const temperature = Number(item.temperaturaMaximaC)
+    const rawTemperature = item.temperaturaMaximaC
+    if (rawTemperature === '' || rawTemperature === null || rawTemperature === undefined) {
+        return label + ': informe a temperatura máxima de conservação em °C.'
+    }
+
+    const temperature = Number(rawTemperature)
     if (!Number.isFinite(temperature)) {
         return label + ': informe a temperatura máxima de conservação em °C.'
     }
