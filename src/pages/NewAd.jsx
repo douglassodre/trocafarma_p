@@ -70,7 +70,7 @@ function createEmptyItem(overrides = {}) {
         expirationDate: '',
         termolabil: false,
         temperaturaMaximaC: '',
-        photos: ''
+        photos: '',
         previewUrl: null,
         previewReady: false,
         previewError: '',
