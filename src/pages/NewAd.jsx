@@ -7,7 +7,7 @@ import logoImageUrl from '../assets/logo.png'
 import {
     ArrowLeft, MapPin, Calendar,
     Package, FileText, Camera, Save,
-    Tag, AlertTriangle, CheckCircle, XCircle, Plus, Trash2, Siren
+    Tag, AlertTriangle, CheckCircle, XCircle, Plus, Trash2, Siren, Snowflake
 } from 'lucide-react'
 import Autocomplete from '../components/Autocomplete'
 import UrgencyWizard from '../components/UrgencyWizard'
@@ -18,6 +18,7 @@ import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
+import { getThermalStorageError, appendThermalStorageCaption } from '../utils/thermalStorage'
 
 const MAX_BULK_ITEMS = 20
 const EXPIRED_SESSION_MESSAGE = 'Sua sessao expirou. Entre novamente para continuar anunciando.'
@@ -67,6 +68,8 @@ function createEmptyItem(overrides = {}) {
         unitPrice: '',
         batch: '',
         expirationDate: '',
+        termolabil: false,
+        temperaturaMaximaC: '',
         photos: '',
         previewUrl: null,
         previewReady: false,
@@ -85,7 +88,9 @@ function mergeForStatus(item, commonData) {
         returnDate: commonData.returnDate,
         exchangeItems: commonData.exchangeItems,
         cidade: commonData.cidade,
-        estado: commonData.estado
+        estado: commonData.estado,
+        termolabil: Boolean(item.termolabil),
+        temperaturaMaximaC: item.temperaturaMaximaC
     }
 }
 
@@ -135,6 +140,8 @@ function buildStatusCaption(formData) {
         `Tipo: ${formData.type || 'Nao informado'}`,
         `Logistica: ${formData.logistics || 'A combinar'}`,
     ]
+
+    appendThermalStorageCaption(lines, formData)
 
     if (formData.cidade || formData.estado) {
         lines.push(`Local: ${[formData.cidade, formData.estado].filter(Boolean).join(' - ')}`)
@@ -387,6 +394,16 @@ async function drawStatusTemplatePreview(canvas, { imageSrc, formData }) {
     drawInfoBox(122, 1198, 'MODALIDADE', typeLabel, true)
     drawInfoBox(550, 1198, 'LOGÍSTICA', logisticsLabel)
 
+    if (formData.termolabil) {
+        fillRoundedRect(ctx, 122, 1340, 836, 112, 24, '#e0f2fe')
+        strokeRoundedRect(ctx, 122, 1340, 836, 112, 24, '#7dd3fc', 2)
+        ctx.fillStyle = '#0369a1'
+        ctx.font = 'bold 24px Arial, sans-serif'
+        ctx.fillText('ITEM TERMOLÁBIL', 150, 1382)
+        ctx.fillStyle = '#0c4a6e'
+        ctx.font = 'bold 28px Arial, sans-serif'
+        ctx.fillText('Manter até ' + formData.temperaturaMaximaC + ' °C', 150, 1424)
+    }
     const buttonGradient = ctx.createLinearGradient(122, 0, 958, 0)
     buttonGradient.addColorStop(0, '#4167d9')
     buttonGradient.addColorStop(1, '#2b57d9')
@@ -449,7 +466,7 @@ function AdItemFields({
     setCanvasRef
 }) {
     const canvasRef = useRef(null)
-    const { id, previewUrl, description, expirationDate, batch, quantity, unitPrice } = item
+    const { id, previewUrl, description, expirationDate, batch, quantity, unitPrice, termolabil, temperaturaMaximaC } = item
     const { type, logistics, cidade, estado } = commonData
     const publishesToSalvadorStatus = isSalvadorStatusLocation(commonData)
     const fileInputId = `file-upload-${id}`
@@ -479,7 +496,9 @@ function AdItemFields({
                 type,
                 logistics,
                 cidade,
-                estado
+                estado,
+                termolabil,
+                temperaturaMaximaC
             },
         }).then(() => {
             if (!cancelled) onPreviewChange(id, { previewReady: true })
@@ -507,6 +526,8 @@ function AdItemFields({
         logistics,
         cidade,
         estado,
+        termolabil,
+        temperaturaMaximaC,
         onPreviewChange
     ])
 
@@ -629,6 +650,39 @@ function AdItemFields({
                     </div>
                 </div>
 
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-5">
+                    <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                            type="checkbox"
+                            name="termolabil"
+                            checked={Boolean(termolabil)}
+                            onChange={(event) => onFieldChange(id, event)}
+                            className="mt-1 h-5 w-5 rounded border-slate-300 text-sky-600"
+                        />
+                        <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                            <Snowflake className="h-5 w-5 text-sky-600" />
+                            Este item é termolábil
+                        </span>
+                    </label>
+                    <p className="mt-2 pl-8 text-xs text-slate-600">Informe esta condição para que a logística mantenha a medicação refrigerada.</p>
+                    {termolabil && (
+                        <div className="mt-4 max-w-xs pl-8">
+                            <Label className="mb-2 block text-sky-900">Manter até (°C)</Label>
+                            <Input
+                                type="number"
+                                name="temperaturaMaximaC"
+                                value={temperaturaMaximaC}
+                                onChange={(event) => onFieldChange(id, event)}
+                                min="-100"
+                                max="100"
+                                step="0.1"
+                                required
+                                placeholder="Ex.: 8"
+                                className="border-sky-200 bg-white focus:ring-sky-500"
+                            />
+                        </div>
+                    )}
+                </div>
                 <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-5">
                     <h4 className="mb-4 flex items-center text-sm font-semibold text-emerald-800">
                         <Tag className="mr-2 h-4 w-4" />
@@ -886,6 +940,8 @@ const NewAd = () => {
                 unitPrice: adToEdit.preco_unitario || '',
                 batch: adToEdit.lote || '',
                 expirationDate: adToEdit.data_vencimento || '',
+                termolabil: Boolean(adToEdit.termolabil),
+                temperaturaMaximaC: adToEdit.temperatura_maxima_celsius ?? '',
                 previewUrl: adToEdit.foto_url || null
             })])
             setIsEditMode(true)
@@ -973,8 +1029,8 @@ const NewAd = () => {
     }
 
     const handleItemFieldChange = useCallback((itemId, event) => {
-        const { name, value } = event.target
-        updateItem(itemId, { [name]: value })
+        const { name, value, checked, type } = event.target
+        updateItem(itemId, { [name]: type === 'checkbox' ? checked : value })
     }, [updateItem])
 
     const handleItemSelect = useCallback((itemId, selectedItem) => {
@@ -1089,6 +1145,8 @@ const NewAd = () => {
             status: statusInicial,
             cidade: commonData.cidade,
             estado: commonData.estado,
+            termolabil: Boolean(item.termolabil),
+            temperatura_maxima_celsius: item.termolabil ? Number(item.temperaturaMaximaC) : null,
             foto_url: finalPhotoUrl
         }
     }
@@ -1157,6 +1215,9 @@ const NewAd = () => {
                 return `${label}: a data de vencimento nao pode ser no passado.`
             }
 
+            const thermalError = getThermalStorageError(item, label)
+            if (thermalError) return thermalError
+
             if (!item.previewApproved) {
                 return `${label}: aprove a previa do WhatsApp antes de salvar o anuncio.`
             }
@@ -1178,7 +1239,9 @@ const NewAd = () => {
                 type: commonData.type,
                 logistics: commonData.logistics,
                 cidade: commonData.cidade,
-                estado: commonData.estado
+                estado: commonData.estado,
+                termolabil: item.termolabil,
+                temperaturaMaximaC: item.temperaturaMaximaC
             }
         })
 

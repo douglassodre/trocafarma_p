@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "stripe:create-live-price": "node scripts/create-stripe-live-price.mjs",
-    "stripe:create-webhook": "node scripts/create-stripe-webhook-endpoint.mjs"
+    "stripe:create-webhook": "node scripts/create-stripe-webhook-endpoint.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.6.1",

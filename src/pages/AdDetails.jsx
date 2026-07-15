@@ -44,7 +44,7 @@ const AdDetails = () => {
         const shareText = `💊 TrocaFarma - Novo Item Disponível!
 Item: ${ad.descricao_customizada}
 Validade: ${new Date(ad.data_vencimento).toLocaleDateString()}
-Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}
+Instituição: ${ad.instituicoes?.nome_fantasia || 'Indisponível'}${ad.termolabil ? `\n❄️ TERMOLÁBIL: manter até ${ad.temperatura_maxima_celsius} °C` : ''}
 
 🔗 Confira os detalhes e solicite a troca aqui: ${window.location.origin}/anuncio/${ad.id}`
 
