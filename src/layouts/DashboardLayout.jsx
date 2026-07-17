@@ -20,10 +20,9 @@ const DashboardLayout = ({ children }) => {
             if (userProfile) {
                 if (isSuperAdmin(userProfile)) return
 
-                const institutionPending = userProfile.instituicoes?.status === 'PENDENTE'
                 const userInactive = userProfile.is_active === false
 
-                if ((institutionPending || userInactive) && location.pathname !== '/pending-approval') {
+                if (userInactive && location.pathname !== '/pending-approval') {
                     navigate('/pending-approval')
                 }
             }
