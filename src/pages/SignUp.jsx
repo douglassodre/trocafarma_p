@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { apiService } from '../services/apiService'
+import { registrationAccess } from '../utils/registrationAccess'
 
 import logo from '../assets/logo.png'
 
@@ -118,7 +119,7 @@ const SignUp = () => {
                         cnpj: cleanCnpj,
                         nome_fantasia: name,
                         cidade: city,
-                        status: 'PENDENTE'
+                        status: registrationAccess.institutionStatus
                     }])
                     .select()
                     .single()
@@ -153,7 +154,7 @@ const SignUp = () => {
                         role: role,
                         cpf: formData.cpf,
                         whatsapp: formData.whatsapp,
-                        is_active: role === 'UNIDADE_ADM',
+                        is_active: registrationAccess.isActive,
                     },
                 },
             })
